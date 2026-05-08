@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-08 13:20",
+  "lastUpdated": "2026-05-08 14:18",
   "spelers": [
     "The Grey One",
     "Sporty Mum",
@@ -103,6 +103,54 @@
           "plaats": 5,
           "cpTotaal": 10.0,
           "slagen": 12,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        }
+      ]
+    },
+    {
+      "gameId": "3-A",
+      "datum": "2026-05-08",
+      "rondes": 13,
+      "finale": false,
+      "resultaten": [
+        {
+          "speler": "Miss Sunshine",
+          "plaats": 1,
+          "cpTotaal": 50.0,
+          "slagen": 23,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Sporty Mum",
+          "plaats": 2,
+          "cpTotaal": 40.0,
+          "slagen": 35,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "CinCity",
+          "plaats": 3,
+          "cpTotaal": 33.0,
+          "slagen": 52,
+          "slagenKoning": true,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "The Grey One",
+          "plaats": 4,
+          "cpTotaal": 20.0,
+          "slagen": 24,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Colonel Mustard",
+          "plaats": 4,
+          "cpTotaal": 20.0,
+          "slagen": 32,
           "slagenKoning": false,
           "ongeslagenWinnaar": false
         }
