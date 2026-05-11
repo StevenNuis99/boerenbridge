@@ -461,6 +461,43 @@ function mapJaarstand(data) {
     };
   });
 
+  // Bereken de vorige ranglijst: stand zoals die was NA het op-één-na-laatste potje.
+  // Dit werkt puur op basis van de potjes-array — geen extra veld in data.json nodig.
+  if (data.potjes && data.potjes.length >= 2) {
+    const spelers = data.spelers || Object.keys(map);
+    const aantalPotjes = data.potjes.length;
+    const vorigeAantal = aantalPotjes - 1;
+    const vorigeK = Math.ceil(vorigeAantal * 0.6);
+
+    // Verzamel CP scores per speler t/m potje vorigeAantal - 1
+    const cpPerSpeler = {};
+    spelers.forEach(s => { cpPerSpeler[s] = []; });
+
+    for (let i = 0; i < vorigeAantal; i++) {
+      data.potjes[i].resultaten.forEach(r => {
+        if (cpPerSpeler[r.speler] !== undefined) {
+          cpPerSpeler[r.speler].push(r.cpTotaal);
+        }
+      });
+    }
+
+    // Bereken jaarpunten op dat moment
+    const vorigeScores = {};
+    spelers.forEach(s => {
+      const sorted = [...cpPerSpeler[s]].sort((a, b) => b - a);
+      vorigeScores[s] = sorted.slice(0, vorigeK).reduce((sum, v) => sum + v, 0);
+    });
+
+    // Rangschik op vorige stand
+    const vorigeRanking = spelers
+      .slice()
+      .sort((a, b) => vorigeScores[b] - vorigeScores[a]);
+
+    vorigeRanking.forEach((speler, idx) => {
+      if (map[speler]) map[speler].prevRank = idx + 1;
+    });
+  }
+
   return map;
 }
 
