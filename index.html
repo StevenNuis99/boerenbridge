@@ -148,6 +148,22 @@
     .main-grid { grid-template-columns: 1fr; }
   }
 
+  /* Trend indicator in ranking */
+  .trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .trend-indicator.up   { background: #d4f5e2; color: #1a7a3c; }
+  .trend-indicator.down { background: #fde8e8; color: #c0392b; }
+  .trend-indicator.same { background: #f0f0f0; color: #999; }
+  .trend-indicator .arrow { font-size: 0.8rem; }
+
   /* PANEL */
   .panel {
     background: var(--card-bg);
@@ -222,7 +238,7 @@
   .cp-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
 
   /* CHART */
-  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap { position: relative; height: 340px; }
 
   /* PLAYER CARDS */
   .player-grid {
@@ -377,6 +393,7 @@
           <th>Speler</th>
           <th>Potjes</th>
           <th>Jaarpunten (top 60%)</th>
+          <th>Trend</th>
         </tr>
       </thead>
       <tbody id="ranking-body"></tbody>
@@ -384,15 +401,15 @@
   </div>
 
   <div class="panel">
+    <div class="panel-title"><span>👤</span> Spelersprofiel</div>
+    <div id="player-grid" class="player-grid"></div>
+  </div>
+
+  <div class="panel wide">
     <div class="panel-title"><span>📈</span> Ranking over Tijd (CP)</div>
     <div class="chart-wrap">
       <canvas id="timeChart"></canvas>
     </div>
-  </div>
-
-  <div class="panel wide">
-    <div class="panel-title"><span>👤</span> Spelersprofiel</div>
-    <div id="player-grid" class="player-grid"></div>
   </div>
 
   <div class="panel wide">
@@ -592,9 +609,15 @@ function renderRanking(stats) {
   tbody.innerHTML = ranked.map(([naam, s], i) => {
     const vorige = s.prevRank || (i+1);
     const huidige = i + 1;
-    let trend = "➖";
-    if (huidige < vorige) trend = "⬆️";
-    if (huidige > vorige) trend = "⬇️";
+    const diff = vorige - huidige; // positief = gestegen
+    let trendHTML;
+    if (diff > 0) {
+      trendHTML = `<span class="trend-indicator up"><span class="arrow">&#9650;</span> +${diff}</span>`;
+    } else if (diff < 0) {
+      trendHTML = `<span class="trend-indicator down"><span class="arrow">&#9660;</span> ${diff}</span>`;
+    } else {
+      trendHTML = `<span class="trend-indicator same">&#8212;</span>`;
+    }
 
     const kleur = KLEUREN[naam] || {bg:"#999", emoji:"🃏"};
     const pct = (s.cpTotaal / maxCP * 100).toFixed(1);
@@ -603,15 +626,12 @@ function renderRanking(stats) {
     return `
       <tr class="ranking-row">
         <td><span class="rank-badge ${badgeKlasse}">${i+1}</span>${medal}</td>
-        <td>          
+        <td>
           <div class="speler-cel">
             <div class="speler-links">
               <span class="speler-emoji">${kleur.emoji}</span>
               <span class="speler-naam">${naam}</span>
             </div>
-            <div class="speler-rechts">
-              <span class="trend">${trend}</span>
-            </div>   
           </div>
         </td>
         <td>${s.potjesGespeeld}</td>
@@ -621,7 +641,7 @@ function renderRanking(stats) {
             <strong>${s.cpTotaal.toFixed(1)}</strong>
           </div>
         </td>
-        <td>${trend}</td>
+        <td>${trendHTML}</td>
       </tr>
     `;
   }).join('');
