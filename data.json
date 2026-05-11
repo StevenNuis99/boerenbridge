@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-11 20:28",
+  "lastUpdated": "2026-05-11 20:32",
   "spelers": [
     "Billy Bat",
     "CinCity",
@@ -379,9 +379,115 @@
           "ongeslagenWinnaar": false
         }
       ]
+    },
+    {
+      "gameId": "6-A",
+      "datum": "2026-05-11",
+      "rondes": 13,
+      "finale": false,
+      "resultaten": [
+        {
+          "speler": "Colonel Mustard",
+          "plaats": 1,
+          "cpTotaal": 83.0,
+          "slagen": 20,
+          "slagenKoning": true,
+          "ongeslagenWinnaar": true
+        },
+        {
+          "speler": "CinCity",
+          "plaats": 2,
+          "cpTotaal": 64.3,
+          "slagen": 19,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Sporty Mum",
+          "plaats": 3,
+          "cpTotaal": 53.6,
+          "slagen": 19,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Miss Sunshine",
+          "plaats": 4,
+          "cpTotaal": 42.9,
+          "slagen": 19,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "The Grey One",
+          "plaats": 5,
+          "cpTotaal": 32.1,
+          "slagen": 10,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Punda",
+          "plaats": 6,
+          "cpTotaal": 21.4,
+          "slagen": 18,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        },
+        {
+          "speler": "Vixen",
+          "plaats": 7,
+          "cpTotaal": 10.7,
+          "slagen": 10,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false
+        }
+      ]
     }
   ],
   "jaarstand": [
+    {
+      "speler": "Colonel Mustard",
+      "t": 6,
+      "k": 4,
+      "jaarpunten": 283.3,
+      "wins": 1,
+      "beste": 83.0,
+      "gem_topk": 70.8,
+      "kampioen_waardig": "Ja",
+      "finales": 0,
+      "slagen_k": 2,
+      "ongeslagen": 1,
+      "rang": 1
+    },
+    {
+      "speler": "CinCity",
+      "t": 6,
+      "k": 4,
+      "jaarpunten": 236.8,
+      "wins": 2,
+      "beste": 65.8,
+      "gem_topk": 59.2,
+      "kampioen_waardig": "Ja",
+      "finales": 0,
+      "slagen_k": 2,
+      "ongeslagen": 0,
+      "rang": 2
+    },
+    {
+      "speler": "The Grey One",
+      "t": 6,
+      "k": 4,
+      "jaarpunten": 225.8,
+      "wins": 1,
+      "beste": 87.7,
+      "gem_topk": 56.5,
+      "kampioen_waardig": "Ja",
+      "finales": 0,
+      "slagen_k": 0,
+      "ongeslagen": 0,
+      "rang": 3
+    },
     {
       "speler": "Billy Bat",
       "t": 4,
@@ -394,7 +500,7 @@
       "finales": 0,
       "slagen_k": 0,
       "ongeslagen": 0,
-      "rang": 1
+      "rang": 4
     },
     {
       "speler": "Miss Thunder",
@@ -408,67 +514,53 @@
       "finales": 0,
       "slagen_k": 0,
       "ongeslagen": 0,
-      "rang": 2
-    },
-    {
-      "speler": "Colonel Mustard",
-      "t": 5,
-      "k": 3,
-      "jaarpunten": 200.3,
-      "wins": 0,
-      "beste": 78.0,
-      "gem_topk": 66.8,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 1,
-      "ongeslagen": 0,
-      "rang": 3
-    },
-    {
-      "speler": "The Grey One",
-      "t": 5,
-      "k": 3,
-      "jaarpunten": 193.7,
-      "wins": 1,
-      "beste": 87.7,
-      "gem_topk": 64.6,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 0,
-      "ongeslagen": 0,
-      "rang": 4
-    },
-    {
-      "speler": "CinCity",
-      "t": 5,
-      "k": 3,
-      "jaarpunten": 172.5,
-      "wins": 2,
-      "beste": 65.8,
-      "gem_topk": 57.5,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 2,
-      "ongeslagen": 0,
       "rang": 5
     },
     {
-      "speler": "Miss Sunshine",
-      "t": 4,
-      "k": 3,
-      "jaarpunten": 171.0,
+      "speler": "Sporty Mum",
+      "t": 6,
+      "k": 4,
+      "jaarpunten": 183.4,
       "wins": 0,
-      "beste": 77.8,
-      "gem_topk": 57.0,
-      "kampioen_waardig": "Nee",
+      "beste": 56.4,
+      "gem_topk": 45.9,
+      "kampioen_waardig": "Ja",
       "finales": 0,
-      "slagen_k": 0,
+      "slagen_k": 1,
       "ongeslagen": 0,
       "rang": 6
     },
     {
+      "speler": "Punda",
+      "t": 6,
+      "k": 4,
+      "jaarpunten": 180.8,
+      "wins": 1,
+      "beste": 105.0,
+      "gem_topk": 45.2,
+      "kampioen_waardig": "Ja",
+      "finales": 0,
+      "slagen_k": 1,
+      "ongeslagen": 1,
+      "rang": 7
+    },
+    {
+      "speler": "Miss Sunshine",
+      "t": 5,
+      "k": 3,
+      "jaarpunten": 176.3,
+      "wins": 0,
+      "beste": 77.8,
+      "gem_topk": 58.8,
+      "kampioen_waardig": "Nee",
+      "finales": 0,
+      "slagen_k": 0,
+      "ongeslagen": 0,
+      "rang": 8
+    },
+    {
       "speler": "Vixen",
-      "t": 4,
+      "t": 5,
       "k": 3,
       "jaarpunten": 169.6,
       "wins": 0,
@@ -477,34 +569,6 @@
       "kampioen_waardig": "Nee",
       "finales": 0,
       "slagen_k": 0,
-      "ongeslagen": 0,
-      "rang": 7
-    },
-    {
-      "speler": "Punda",
-      "t": 5,
-      "k": 3,
-      "jaarpunten": 159.4,
-      "wins": 1,
-      "beste": 105.0,
-      "gem_topk": 53.1,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 1,
-      "ongeslagen": 1,
-      "rang": 8
-    },
-    {
-      "speler": "Sporty Mum",
-      "t": 5,
-      "k": 3,
-      "jaarpunten": 129.8,
-      "wins": 0,
-      "beste": 56.4,
-      "gem_topk": 43.3,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 1,
       "ongeslagen": 0,
       "rang": 9
     }
