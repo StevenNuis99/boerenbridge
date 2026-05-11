@@ -326,6 +326,13 @@
   .history-table tr:hover td { background: #f5fff8; }
   .finale-badge { background: var(--gold); color: #7a5000; border-radius: 4px; padding: 1px 5px; font-size: 0.65rem; font-weight: 800; margin-left: 4px; }
 
+  .history-row.active td {
+  background: #e6f7ec !important;
+  border-top: 2px solid #2ea84f;
+  border-bottom: 2px solid #2ea84f;
+}
+
+
   /* FOOTER */
   .footer {
     text-align: center;
@@ -792,6 +799,14 @@ document.addEventListener("click", function(e) {
   const row = e.target.closest(".history-row");
   if (!row) return;
 
+  // ❌ verwijder vorige selectie
+  document.querySelectorAll(".history-row").forEach(r => {
+    r.classList.remove("active");
+  });
+
+  // ✅ markeer huidige
+  row.classList.add("active");
+
   const gameId = row.dataset.gameid;
   const potje = DATA.potjes.find(p => p.gameId === gameId);
 
@@ -840,6 +855,8 @@ function renderGameDetail(potje) {
       </table>
     </div>
   `;
+
+  container.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 
