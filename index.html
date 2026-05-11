@@ -448,7 +448,7 @@ const KLEUREN = {
   "CinCity":          {bg:"#ff6b35", chart:"#ff6b35", emoji:"🎬"},
   "Miss Sunshine":    {bg:"#ffd700", chart:"#daa520", emoji:"☀️"},
   "Colonel Mustard":  {bg:"#8b6914", chart:"#c9a020", emoji:"🎖️"},
-  "Choppy":           {bg:"#20b2aa", chart:"#20b2aa", emoji:"⚡"},
+  "Vixen":           {bg:"#20b2aa", chart:"#20b2aa", emoji:"⚡"},
   "Miss Thunder":     {bg:"#9b59b6", chart:"#9b59b6", emoji:"⛈️"},
   "Punda":            {bg:"#e74c3c", chart:"#e74c3c", emoji:"🦓"},
   "Billy Bat":        {bg:"#2ecc71", chart:"#2ecc71", emoji:"🦇"}
@@ -563,6 +563,12 @@ function renderRanking(stats) {
 
   const tbody = document.getElementById('ranking-body');
   tbody.innerHTML = ranked.map(([naam, s], i) => {
+    const vorige = s.prevRank || (i+1);
+    const huidige = i + 1;
+    let trend = "➖";
+    if (huidige < vorige) trend = "⬆️";
+    if (huidige > vorige) trend = "⬇️";
+
     const kleur = KLEUREN[naam] || {bg:"#999", emoji:"🃏"};
     const pct = (s.cpTotaal / maxCP * 100).toFixed(1);
     const badgeKlasse = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
@@ -570,7 +576,7 @@ function renderRanking(stats) {
     return `
       <tr class="ranking-row">
         <td><span class="rank-badge ${badgeKlasse}">${i+1}</span>${medal}</td>
-        <td>${kleur.emoji} ${naam}</td>
+        <td>${kleur.emoji} ${naam} ${trend}</td>
         <td>${s.potjesGespeeld}</td>
         <td>
           <div class="cp-bar-wrap">
@@ -578,6 +584,7 @@ function renderRanking(stats) {
             <strong>${s.cpTotaal.toFixed(1)}</strong>
           </div>
         </td>
+        <td>${trend}</td>
       </tr>
     `;
   }).join('');
