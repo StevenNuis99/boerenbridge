@@ -777,20 +777,12 @@ function renderHistory() {
 // ============================================================
 // LAST UPDATED
 // ============================================================
-function renderLastUpdated() {
-  const el = document.createElement('div');
-  el.className = 'last-updated';
-  el.textContent = `⏱ Laatste update: ${DATA.lastUpdated}`;
-  document.querySelector('.header').after(el);
-}
-
 document.addEventListener("click", function(e) {
   const row = e.target.closest(".history-row");
   if (!row) return;
 
   const gameId = row.dataset.gameid;
 
-  // 🔍 Zoek het potje in DATA
   const potje = DATA.potjes.find(p => p.gameId === gameId);
 
   if (!potje) {
@@ -798,9 +790,16 @@ document.addEventListener("click", function(e) {
     return;
   }
 
-  console.log("Volledig potje:", potje);
+  // 🧪 Test output
+  const winnaar = potje.resultaten.find(r => r.plaats === 1);
+
+  alert(
+    "Potje: " + potje.gameId + "\n" +
+    "Datum: " + potje.datum + "\n" +
+    "Rondes: " + potje.rondes + "\n" +
+    "Winnaar: " + (winnaar?.speler ?? "Onbekend")
+  );
 });
-``
 
 // ============================================================
 // INITIALISEER
