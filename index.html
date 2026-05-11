@@ -784,12 +784,23 @@ function renderLastUpdated() {
   document.querySelector('.header').after(el);
 }
 
-document.addEventListener('click', function(e) {
-  const row = e.target.closest('.history-row');
+document.addEventListener("click", function(e) {
+  const row = e.target.closest(".history-row");
   if (!row) return;
-    const gameId = row.dataset.gameid;;
-    console.log("Geklikt op potje:", gameId); 
+
+  const gameId = row.dataset.gameid;
+
+  // 🔍 Zoek het potje in DATA
+  const potje = DATA.potjes.find(p => p.gameId === gameId);
+
+  if (!potje) {
+    console.error("Potje niet gevonden:", gameId);
+    return;
+  }
+
+  console.log("Volledig potje:", potje);
 });
+``
 
 // ============================================================
 // INITIALISEER
