@@ -824,8 +824,8 @@ function renderGameDetail(potje) {
       <tr>
         <td>${potje.gameId}</td>
         <td>${r.speler}</td>
-        <td>-</td>
-        <td>-</td>
+        <td>${r.punten ?? '-'}</td>
+        <td>${r.bonus ?? '-'}</td>
         <td>${r.slagenKoning ? 'Ja' : 'Nee'}</td>
         <td>${r.plaats}</td>
         <td><strong>${r.cpTotaal.toFixed(1)}</strong></td>
