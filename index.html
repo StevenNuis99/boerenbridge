@@ -1,1354 +1,819 @@
-"""
-Boerenbridge Agent v3 — lokale webserver voor score-invoer
-Gebruik: python agent.py
-Open daarna: http://localhost:5000
-
-Fixes v3:
-- Invoer tab wordt nu volledig ingevuld (alle kolommen)
-- Dashboard (index.html) update werkt nu robuust via data.json fetch
-- Speler selectie 5-9 spelers met checkbox UI
-- SQLite database ondersteuning naast Excel
-"""
-
-import base64
-import json
-import math
-import os
-import re
-import sqlite3
-from collections import defaultdict
-from datetime import date, datetime
-from typing import Any
-
-import openpyxl
-import requests
-from flask import Flask, jsonify, render_template_string, request, send_file, send_from_directory
-from openpyxl.utils.datetime import from_excel
-
-EXCEL_PAD = "boerenbridge_competitie_bonus_60pct_NL.xlsx"
-DASHBOARD_HTML = "index.html"
-DATA_JSON = "data.json"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PAD = os.path.join(BASE_DIR, "boerenbridge.db")
-
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_REPO = "StevenNuis99/boerenbridge"
-GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
-GITHUB_BESTANDEN = [DASHBOARD_HTML, DATA_JSON]
-
-SPELERS = [
-    "The Grey One", "Sporty Mum", "CinCity", "Miss Sunshine",
-    "Colonel Mustard", "Vixen", "Miss Thunder", "Punda", "Billy Bat"
-]
-
-HEADERS_INVOER = [
-    "GameID", "Datum", "Rondes (7/10/13)", "Speler", "Eindscore",
-    "n (spelers in potje)", "Plaats (p)", "PF", "SF", "RF",
-    "Competitiepunten (CP)", "Slagen gehaald", "Finale? (Ja/Nee)",
-    "Ongeslagen winst? (Ja/Nee)", "Slagen koning? (auto)",
-    "Bonus slagen koning (+3)", "Bonus ongeslagen winnaar (+5)",
-    "Finale multiplier (1 of 2)", "Bonus totaal", "CP totaal (incl. bonus)",
-    "Rang binnen speler (op totaal)"
-]
-
-HEADERS_JAARSTAND = [
-    "Speler", "Gespeelde potjes (T)", "K = beste 60%",
-    "Jaarpunten = som top-K (CP totaal)", "Potjes gewonnen",
-    "Beste resultaat (CP totaal)", "Gem. resultaat (top-K)",
-    "Kampioen-waardig? (>=6 potjes)", "Rang (op jaarpunten)",
-    "# Finale potjes gespeeld", "# Slagen-koning titels", "# Ongeslagen overwinningen"
-]
-
-app = Flask(__name__, static_folder=".")
-
-
-# ─── Helpers ────────────────────────────────────────────────────────────────
-
-def normaliseer_ja_nee(value: Any) -> str:
-    if isinstance(value, bool):
-        return "Ja" if value else "Nee"
-    if value is None:
-        return "Nee"
-    return "Ja" if str(value).strip().lower() in {"ja", "j", "yes", "y", "true", "1", "on", "aan"} else "Nee"
-
-
-def naar_int(value: Any, veldnaam: str) -> int:
-    try:
-        return int(value)
-    except Exception as exc:
-        raise ValueError(f"{veldnaam} moet een heel getal zijn.") from exc
-
-
-def naar_float(value: Any, veldnaam: str) -> float:
-    try:
-        return float(str(value).replace(",", "."))
-    except Exception as exc:
-        raise ValueError(f"{veldnaam} moet een getal zijn.") from exc
-
-
-def is_nummer(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def datum_naar_iso(value: Any) -> str:
-    if value is None or value == "":
-        return ""
-    if isinstance(value, datetime):
-        return value.date().isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    if is_nummer(value):
-        try:
-            return from_excel(value).date().isoformat()
-        except Exception:
-            return str(value)
-    text = str(value).strip()
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(text, fmt).date().isoformat()
-        except ValueError:
-            pass
-    return text
-
-
-def bereken_cp(plaats: int, n: int, rondes: int):
-    pf = round((n - plaats + 1) / n, 6)
-    sf = round((n - 1) / 8, 6)
-    rf = round(math.sqrt(rondes / 13), 6)
-    cp = round(100 * pf * sf * rf, 1)
-    return pf, sf, rf, cp
-
-def bereken_cp_totaal(
-plaats: int, n: int, rondes: int, finale: bool,
-                      slagen: int, max_slagen: int,
-                      ongeslagen_winnaar: bool) -> dict:
-    pf, sf, rf, cp = bereken_cp(plaats, n, rondes)
-
-    finale_multiplier = 2 if finale else 1
-    slagen_koning = (slagen == max_slagen)
-    bonus_slagen_koning = 3 if slagen_koning else 0
-    bonus_ongeslagen = 5 if (ongeslagen_winnaar and plaats == 1) else 0
-    bonus_totaal = bonus_slagen_koning + bonus_ongeslagen
-
-    cp_totaal = round(cp * finale_multiplier + bonus_totaal, 1)
-
-    return {
-        "pf": pf,
-        "sf": sf,
-        "rf": rf,
-        "cp": cp,
-        "finale_multiplier": finale_multiplier,
-        "slagen_koning": slagen_koning,
-        "bonus_slagen_koning": bonus_slagen_koning,
-        "bonus_ongeslagen": bonus_ongeslagen,
-        "bonus_totaal": bonus_totaal,
-        "cp_totaal": cp_totaal
-    }
-
-
-# ─── Payload validatie ───────────────────────────────────────────────────────
-
-def valideer_payload(payload: dict) -> dict:
-    datum = datum_naar_iso(payload.get("datum") or date.today())
-    rondes = naar_int(payload.get("rondes"), "Rondes")
-    if rondes not in {7, 10, 13}:
-        raise ValueError("Rondes moet 7, 10 of 13 zijn.")
-
-    rows = payload.get("spelers") or payload.get("resultaten") or []
-    if not isinstance(rows, list):
-        raise ValueError("Spelers/resultaten moet een lijst zijn.")
-
-    spelers = []
-    gezien = set()
-    for item in rows:
-        naam = str(item.get("naam") or item.get("speler") or "").strip()
-        if not naam:
-            continue
-        if naam not in SPELERS:
-            raise ValueError(f"Onbekende speler: {naam}")
-        if naam in gezien:
-            raise ValueError(f"Speler dubbel ingevoerd: {naam}")
-        gezien.add(naam)
-        spelers.append({
-            "naam": naam,
-            "score": naar_float(item.get("score") or item.get("eindscore"), f"Eindscore van {naam}"),
-            "slagen": naar_int(item.get("slagen") or item.get("slagenGehaald") or 0, f"Slagen van {naam}"),
-            "ongeslagen": normaliseer_ja_nee(item.get("ongeslagen") or item.get("ongeslagenWinnaar")),
-        })
-
-    if len(spelers) < 5:
-        raise ValueError("Minimaal 5 spelers moeten meedoen.")
-    if len(spelers) > 9:
-        raise ValueError("Maximaal 9 spelers kunnen meedoen.")
-
-    return {
-        "gameId": str(payload.get("gameId") or "").strip() or None,
-        "datum": datum,
-        "rondes": rondes,
-        "finale": normaliseer_ja_nee(payload.get("finale")),
-        "spelers": spelers,
-    }
-
-
-# ─── Excel functies ──────────────────────────────────────────────────────────
-
-def open_wb(data_only: bool = False):
-    if not os.path.exists(EXCEL_PAD):
-        raise FileNotFoundError(f"Excelbestand niet gevonden: {EXCEL_PAD}")
-    return openpyxl.load_workbook(EXCEL_PAD, data_only=data_only)
-
-
-def zorg_sheets(wb):
-    if "Invoer" not in wb.sheetnames:
-        wb.create_sheet("Invoer")
-    if "Jaarstand" not in wb.sheetnames:
-        wb.create_sheet("Jaarstand")
-    ws_invoer = wb["Invoer"]
-    ws_jaarstand = wb["Jaarstand"]
-    # Schrijf headers alleen als rij 1 leeg is
-    if ws_invoer.cell(1, 1).value != HEADERS_INVOER[0]:
-        for c, h in enumerate(HEADERS_INVOER, 1):
-            ws_invoer.cell(1, c).value = h
-    if ws_jaarstand.cell(1, 1).value != HEADERS_JAARSTAND[0]:
-        for c, h in enumerate(HEADERS_JAARSTAND, 1):
-            ws_jaarstand.cell(1, c).value = h
-    return ws_invoer, ws_jaarstand
-
-
-def volgend_game_id(ws) -> str:
-    hoogste = 0
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        game_id = row[0]
-        if not game_id:
-            continue
-        m = re.match(r"^(\d+)-A$", str(game_id).strip())
-        if m:
-            hoogste = max(hoogste, int(m.group(1)))
-    return f"{hoogste + 1}-A"
-
-
-def verwijder_bestaande_game(ws, game_id: str):
-    """Verwijder alle rijen met dit game_id (voor her-opslaan)."""
-    for row_idx in range(ws.max_row, 1, -1):
-        cel_waarde = ws.cell(row_idx, 1).value
-        if cel_waarde and str(cel_waarde).strip() == str(game_id).strip():
-            ws.delete_rows(row_idx)
-
-
-def werk_rang_binnen_speler_bij(ws):
-    per_speler = defaultdict(list)
-    for row_idx in range(2, ws.max_row + 1):
-        speler = ws.cell(row_idx, 4).value
-        cp_totaal = ws.cell(row_idx, 20).value
-        if speler and is_nummer(cp_totaal):
-            per_speler[speler].append((row_idx, float(cp_totaal)))
-    for speler, items in per_speler.items():
-        for rang, (row_idx, _) in enumerate(sorted(items, key=lambda x: x[1], reverse=True), 1):
-            ws.cell(row_idx, 21).value = rang
-
-
-def lees_invoer_records_uit_ws(ws) -> list[dict]:
-    """Lees records direct uit een openpyxl worksheet (geen data_only nodig)."""
-    records = []
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if not row or not row[0] or not row[3]:
-            continue
-        # Kolom 20 = CP totaal (index 19), kolom 10 = CP (index 10)
-        cp_totaal = row[19] if len(row) > 19 else None
-        cp = row[10] if len(row) > 10 else None
-        records.append({
-            "gameId": str(row[0]),
-            "datum": datum_naar_iso(row[1]),
-            "rondes": row[2],
-            "speler": row[3],
-            "eindscore": row[4],
-            "n": row[5],
-            "plaats": row[6],
-            "cp": cp,
-            "slagen": row[11] if len(row) > 11 else 0,
-            "finale": normaliseer_ja_nee(row[12] if len(row) > 12 else None) == "Ja",
-            "ongeslagenWinnaar": normaliseer_ja_nee(row[13] if len(row) > 13 else None) == "Ja",
-            "slagenKoning": normaliseer_ja_nee(row[14] if len(row) > 14 else None) == "Ja",
-            "cpTotaal": cp_totaal,
-        })
-    return records
-
-
-def update_jaarstand(wb):
-    ws_invoer, ws_jaar = zorg_sheets(wb)
-
-    # Verwijder bestaande jaarstand data
-    if ws_jaar.max_row > 1:
-        ws_jaar.delete_rows(2, ws_jaar.max_row - 1)
-
-    # Lees direct uit het Invoer werkblad (niet data_only)
-    records = [
-        r for r in lees_invoer_records_uit_ws(ws_invoer)
-        if r["speler"] in SPELERS and is_nummer(r["cpTotaal"])
-    ]
-
-    per_speler = defaultdict(list)
-    for r in records:
-        per_speler[r["speler"]].append(r)
-
-    regels = []
-    for speler in SPELERS:
-        rows = per_speler.get(speler, [])
-        scores = sorted([float(r["cpTotaal"]) for r in rows], reverse=True)
-        t = len(scores)
-        k = math.ceil(t * 0.6) if t else 0
-        top_k = scores[:k]
-        jaarpunten = round(sum(top_k), 1)
-        wins = sum(1 for r in rows if r.get("plaats") == 1)
-        beste = round(max(scores), 1) if scores else 0
-        regels.append({
-            "speler": speler,
-            "t": t,
-            "k": k,
-            "jaarpunten": jaarpunten,
-            "wins": wins,
-            "beste": beste,
-            "gem": round(jaarpunten / k, 1) if k else 0,
-            "waardig": "Ja" if t >= 6 else "Nee",
-            "finales": sum(1 for r in rows if r["finale"]),
-            "slagenKoning": sum(1 for r in rows if r["slagenKoning"]),
-            "ongeslagen": sum(1 for r in rows if r["ongeslagenWinnaar"]),
-        })
-
-    ranking = sorted(regels, key=lambda x: (x["jaarpunten"], x["wins"], x["beste"]), reverse=True)
-    rang = {r["speler"]: i + 1 for i, r in enumerate(ranking)}
-
-    for r in regels:
-        ws_jaar.append([
-            r["speler"], r["t"], r["k"], r["jaarpunten"], r["wins"], r["beste"],
-            r["gem"], r["waardig"], rang[r["speler"]], r["finales"],
-            r["slagenKoning"], r["ongeslagen"]
-        ])
-
-
-# ─── SQLite database ─────────────────────────────────────────────────────────
-
-
-def init_db():
-    """Maak/upgrade DB schema."""
-    conn = sqlite3.connect(DB_PAD)
-    c = conn.cursor()
-
-    # ✅ potjes
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS potjes (
-        game_id TEXT PRIMARY KEY,
-        datum TEXT NOT NULL,
-        rondes INTEGER NOT NULL,
-        finale TEXT NOT NULL DEFAULT 'Nee'
-    )
-    """)
-
-    # ✅ resultaten
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS resultaten (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id TEXT NOT NULL,
-        speler TEXT NOT NULL,
-
-        eindscore INTEGER,
-        n INTEGER,
-        plaats INTEGER,
-
-        pf REAL,
-        sf REAL,
-        rf REAL,
-        cp REAL,
-
-        slagen_gehaald INTEGER,
-        slagen_koning TEXT,
-        ongeslagen_winnaar TEXT,
-
-        bonus_slagen_koning INTEGER,
-        bonus_ongeslagen_winnaar INTEGER,
-        finale_multiplier INTEGER,
-        bonus_totaal INTEGER,
-        cp_totaal REAL
-    )
-    """)
-
-    # ✅ NIEUW: jaarstand tabel
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS jaarstand (
-        speler TEXT PRIMARY KEY,
-        t INTEGER NOT NULL DEFAULT 0,
-        k INTEGER NOT NULL DEFAULT 0,
-        jaarpunten REAL NOT NULL DEFAULT 0,
-        wins INTEGER NOT NULL DEFAULT 0,
-        beste REAL NOT NULL DEFAULT 0,
-        gem_topk REAL NOT NULL DEFAULT 0,
-        kampioen_waardig TEXT NOT NULL DEFAULT 'Nee',
-        rang INTEGER NOT NULL DEFAULT 0,
-        finales INTEGER NOT NULL DEFAULT 0,
-        slagen_k INTEGER NOT NULL DEFAULT 0,
-        ongeslagen INTEGER NOT NULL DEFAULT 0
-    )
-    """)
-    
-   
-
-
-    # 2) Mini-migraties: voeg kolommen toe als je DB ouder is (SQLite: alleen ADD COLUMN)
-    def ensure_column(table: str, column: str, coltype: str):
-        c.execute(f"PRAGMA table_info({table})")
-        existing = {row[1] for row in c.fetchall()}
-        if column not in existing:
-            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
-
-    # potjes
-    ensure_column("potjes", "datum", "TEXT")
-    ensure_column("potjes", "rondes", "INTEGER")
-    ensure_column("potjes", "finale", "TEXT NOT NULL DEFAULT 'Nee'")
-
-    # resultaten (alle velden die jouw dashboard/json gebruikt + extra’s voor berekening)
-    ensure_column("resultaten", "eindscore", "INTEGER NOT NULL DEFAULT 0")
-    ensure_column("resultaten", "n", "INTEGER NOT NULL DEFAULT 0")
-    ensure_column("resultaten", "plaats", "INTEGER NOT NULL DEFAULT 0")
-    ensure_column("resultaten", "pf", "REAL")
-    ensure_column("resultaten", "sf", "REAL")
-    ensure_column("resultaten", "rf", "REAL")
-    ensure_column("resultaten", "cp", "REAL")
-    ensure_column("resultaten", "slagen_gehaald", "INTEGER NOT NULL DEFAULT 0")
-
-    conn.commit()
-    conn.close()
-
-def voeg_toe_aan_db(game: dict) -> str:
-    init_db()
-
-    game_id = game["gameId"]
-    datum = game["datum"]
-    rondes = int(game["rondes"])
-    finale_txt = "Ja" if bool(game.get("finale", False)) else "Nee"
-
-    conn = sqlite3.connect(DB_PAD)
-    c = conn.cursor()
-
-    # potje upsert
-    c.execute("""
-        INSERT INTO potjes (game_id, datum, rondes, finale)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(game_id) DO UPDATE SET
-            datum=excluded.datum,
-            rondes=excluded.rondes,
-            finale=excluded.finale
-    """, (game_id, datum, rondes, finale_txt))
-
-    # resultaten vervangen voor deze game_id (handig bij opnieuw opslaan)
-    c.execute("DELETE FROM resultaten WHERE game_id = ?", (game_id,))
-    
-    n = len(game["resultaten"])
-    max_slagen = max(x["slagen"] for x in game["resultaten"])
-
-    for r in game["resultaten"]:
-
-        calc = bereken_cp_totaal(
-            r["plaats"],
-            n,
-            game["rondes"],
-            game["finale"],
-            r["slagen"],
-            max_slagen,
-            r["ongeslagenWinnaar"]
-    )
-
-        c.execute("""
-            INSERT INTO resultaten (
-                game_id, speler,
-                eindscore, n, plaats,
-                pf, sf, rf, cp,
-                slagen_gehaald, slagen_koning, ongeslagen_winnaar,
-                bonus_slagen_koning, bonus_ongeslagen_winnaar,
-                finale_multiplier, bonus_totaal, cp_totaal
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            game_id,
-            r["speler"],
-            int(r.get("eindscore", 0)),
-            n,
-            int(r.get("plaats", 0)),
-
-            # ✅ HIER ZIT DE FIX
-            float(calc["pf"]),
-            float(calc["sf"]),
-            float(calc["rf"]),
-            float(calc["cp"]),
-
-            int(r.get("slagen", 0)),
-            "Ja" if bool(r.get("slagenKoning", False)) else "Nee",
-            "Ja" if bool(r.get("ongeslagenWinnaar", False)) else "Nee",
-
-            int(calc["bonus_slagen_koning"]),
-            int(calc["bonus_ongeslagen"]),
-
-            int(calc["finale_multiplier"]),
-            int(calc["bonus_slagen_koning"] + calc["bonus_ongeslagen"]),
-
-            float(calc["cp_totaal"])  # ✅ eindresultaat
-        ))
-    
-    conn.commit()
-    conn.close()
-    return game_id
-
-
-def bereken_jaarstand_db(c):
-    c.execute("DELETE FROM jaarstand")
-    c.execute("""
-        SELECT r.speler,
-               COUNT(*) as t,
-               GROUP_CONCAT(r.cp_totaal) as scores,
-               SUM(CASE WHEN r.plaats = 1 THEN 1 ELSE 0 END) as wins,
-               MAX(r.cp_totaal) as beste,
-               SUM(CASE WHEN p.finale = 'Ja' THEN 1 ELSE 0 END) as finales,
-               SUM(CASE WHEN r.slagen_koning = 'Ja' THEN 1 ELSE 0 END) as slagen_k,
-               SUM(CASE WHEN r.ongeslagen_winnaar = 'Ja' THEN 1 ELSE 0 END) as ongeslagen
-        FROM resultaten r
-        JOIN potjes p ON r.game_id = p.game_id
-        GROUP BY r.speler
-    """)
-    rijen = c.fetchall()
-
-    regels = []
-    for speler, t, scores_str, wins, beste, finales, slagen_k, ongeslagen in rijen:
-        scores = sorted([float(s) for s in scores_str.split(",") if s], reverse=True)
-        k = math.ceil(t * 0.6) if t else 0
-        top_k = scores[:k]
-        jaarpunten = round(sum(top_k), 1)
-        regels.append({
-            "speler": speler, "t": t, "k": k, "jaarpunten": jaarpunten,
-            "wins": wins, "beste": round(beste, 1) if beste else 0,
-            "gem": round(jaarpunten / k, 1) if k else 0,
-            "waardig": "Ja" if t >= 6 else "Nee",
-            "finales": finales, "slagen_k": slagen_k, "ongeslagen": ongeslagen,
-        })
-
-    ranking = sorted(regels, key=lambda x: (x["jaarpunten"], x["wins"], x["beste"]), reverse=True)
-    rang = {r["speler"]: i + 1 for i, r in enumerate(ranking)}
-
-    for r in regels:
-        c.execute("""
-            INSERT OR REPLACE INTO jaarstand VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            r["speler"], r["t"], r["k"], r["jaarpunten"], r["wins"], r["beste"],
-            r["gem"], r["waardig"], rang[r["speler"]], r["finales"],
-            r["slagen_k"], r["ongeslagen"]
-        ))
-
-
-def lees_dashboard_data_uit_db() -> dict:
-    conn = sqlite3.connect(DB_PAD)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-
-    c.execute("SELECT * FROM potjes ORDER BY CAST(SUBSTR(game_id, 1, INSTR(game_id,'-')-1) AS INTEGER)")
-    potjes_rows = c.fetchall()
-
-    potjes = []
-    spelers_set = set()
-    
-    for p in potjes_rows:
-        c.execute("SELECT * FROM resultaten WHERE game_id = ? ORDER BY cp_totaal DESC", (p["game_id"],))
-        res = c.fetchall()
-
-        resultaten = [{
-            "speler": r["speler"],
-            "plaats": r["plaats"],
-            "cpTotaal": r["cp_totaal"],
-            "slagen": r["slagen_gehaald"],
-            "slagenKoning": r["slagen_koning"] == "Ja",
-            "ongeslagenWinnaar": r["ongeslagen_winnaar"] == "Ja",
-        } for r in res]
-
-        #voeg spelers toe aan set
-        for r in resultaten:
-            spelers_set.add(r["speler"])
-
-        potjes.append({ 
-            "gameId": p["game_id"],
-            "datum": p["datum"],
-            "rondes": p["rondes"],
-            "finale": p["finale"] == "Ja",
-            "resultaten": resultaten
-        })
-
-        spelers = sorted(list(spelers_set))
-
-    conn.close()
-
-    jaarstand = bereken_en_schrijf_jaarstand_db()
-    return {
-        "lastUpdated": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "spelers": spelers,
-        "potjes": potjes,
-        "jaarstand": jaarstand
-    }
-
-# bereken jaarcijfer en update jaarstand tabel
-
-def bereken_en_schrijf_jaarstand_db() -> list[dict]:
-    """
-    Berekent jaarstand uit SQLite:
-    - per speler: T, K=ceil(T*0.6), jaarpunten=sum(topK cp_totaal)
-    - tiebreak: jaarpunten desc, wins desc, beste desc, naam asc
-    - alleen potjes met n >= 5 tellen mee
-    """
-
-    init_db()
-
-    conn = sqlite3.connect(DB_PAD)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-
-    # 🔹 haal alle rijen op
-    c.execute("""
-        SELECT
-            r.game_id,
-            r.speler,
-            r.plaats,
-            r.cp_totaal,
-            r.slagen_koning,
-            r.ongeslagen_winnaar,
-            p.finale
-        FROM resultaten r
-        JOIN potjes p ON p.game_id = r.game_id
-        WHERE r.n >= 5
-    """)
-    rows = c.fetchall()
-
-    # 🔹 group by speler
-    per_speler = {}
-
-    for r in rows:
-        speler = r["speler"]
-
-        per_speler.setdefault(speler, {
-            "scores": [],
-            "wins": 0,
-            "beste": None,
-            "finales": set(),
-            "slagen_k": 0,
-            "ongeslagen": 0,
-        })
-
-        score = float(r["cp_totaal"])
-        per_speler[speler]["scores"].append(score)
-
-        if int(r["plaats"]) == 1:
-            per_speler[speler]["wins"] += 1
-
-        if per_speler[speler]["beste"] is None or score > per_speler[speler]["beste"]:
-            per_speler[speler]["beste"] = score
-
-        if str(r["finale"]) == "Ja":
-            per_speler[speler]["finales"].add(r["game_id"])
-
-        if str(r["slagen_koning"]) == "Ja":
-            per_speler[speler]["slagen_k"] += 1
-
-        if str(r["ongeslagen_winnaar"]) == "Ja":
-            per_speler[speler]["ongeslagen"] += 1
-
-    # 🔹 bouw jaarstand
-    jaarstand = []
-
-    for speler, s in per_speler.items():
-        T = len(s["scores"])
-        K = math.ceil(T * 0.6) if T > 0 else 0
-        topK = sorted(s["scores"], reverse=True)[:K] if K > 0 else []
-
-        jaarpunten = round(sum(topK), 1)
-        beste = round(s["beste"] or 0, 1)
-        gem_topk = round(jaarpunten / K, 1) if K > 0 else 0.0
-        kampioen = "Ja" if T >= 6 else "Nee"
-
-        jaarstand.append({
-            "speler": speler,
-            "t": T,
-            "k": K,
-            "jaarpunten": jaarpunten,
-            "wins": s["wins"],
-            "beste": beste,
-            "gem_topk": gem_topk,
-            "kampioen_waardig": kampioen,
-            "finales": len(s["finales"]),
-            "slagen_k": s["slagen_k"],
-            "ongeslagen": s["ongeslagen"],
-        })
-
-    # 🔹 sort + ranking
-    jaarstand.sort(key=lambda x: (-x["jaarpunten"], -x["wins"], -x["beste"], x["speler"]))
-
-    for i, r in enumerate(jaarstand, start=1):
-        r["rang"] = i
-
-    # 🔹 schrijf naar DB
-    c.execute("DELETE FROM jaarstand")
-
-    for r in jaarstand:
-        c.execute("""
-            INSERT INTO jaarstand (
-                speler, t, k, jaarpunten, wins, beste, gem_topk,
-                kampioen_waardig, rang, finales, slagen_k, ongeslagen
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            r["speler"],
-            r["t"],
-            r["k"],
-            r["jaarpunten"],
-            r["wins"],
-            r["beste"],
-            r["gem_topk"],
-            r["kampioen_waardig"],
-            r["rang"],
-            r["finales"],
-            r["slagen_k"],
-            r["ongeslagen"]
-        ))
-
-    conn.commit()
-    conn.close()
-
-    return jaarstand
-
-
-# ─── Dashboard data generatie ─────────────────────────────────────────────────
-
-def maak_dashboard_data_uit_excel() -> dict:
-    wb = open_wb(data_only=True)
-    ws = wb["Invoer"]
-    records = [
-        r for r in lees_invoer_records_uit_ws(ws)
-        if is_nummer(r["plaats"]) and is_nummer(r["cpTotaal"])
-    ]
-
-    potjes = {}
-    for r in records:
-        game_id = r["gameId"]
-        if game_id not in potjes:
-            potjes[game_id] = {
-                "gameId": game_id,
-                "datum": r["datum"],
-                "rondes": r["rondes"],
-                "finale": bool(r["finale"]),
-                "resultaten": [],
-            }
-        potjes[game_id]["finale"] = potjes[game_id]["finale"] or bool(r["finale"])
-        potjes[game_id]["resultaten"].append({
-            "speler": r["speler"],
-            "plaats": int(r["plaats"]),
-            "cpTotaal": float(r["cpTotaal"]),
-            "slagen": int(r["slagen"] or 0),
-            "slagenKoning": bool(r["slagenKoning"]),
-            "ongeslagenWinnaar": bool(r["ongeslagenWinnaar"]),
-        })
-
-    def sort_key(item):
-        m = re.match(r"^(\d+)-A$", str(item[0]))
-        return int(m.group(1)) if m else 999999
-
-    return {
-        "lastUpdated": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "spelers": SPELERS,
-        "potjes": [v for _, v in sorted(potjes.items(), key=sort_key)],
-    }
-
-
-def maak_dashboard_data() -> dict:
-    """Leest uit DB als die bestaat, anders uit Excel."""
-    if os.path.exists(DB_PAD):
-        try:
-            return lees_dashboard_data_uit_db()
-        except Exception:
-            pass
-    return maak_dashboard_data_uit_excel()
-
-
-def schrijf_data_json(data: dict):
-    with open(DATA_JSON, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def update_dashboard_html(data: dict):
-    """
-    Update index.html: vervang de inline DATA variabele BETROUWBAAR.
-    Zoekt naar 'const DATA = {' en vervangt alles t/m de bijbehorende sluitende '};'
-    """
-    if not os.path.exists(DASHBOARD_HTML):
-        return
-    with open(DASHBOARD_HTML, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    data_js = "const DATA = " + json.dumps(data, ensure_ascii=False, indent=2) + ";"
-
-    # Vind begin van const DATA =
-    start_marker = "const DATA ="
-    start_idx = html.find(start_marker)
-    if start_idx == -1:
-        # Niet gevonden, voeg toe voor eerste </script>
-        html = html.replace("</script>", data_js + "\n</script>", 1)
-        with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
-            f.write(html)
-        return
-
-    # Vind de sluitende }; door accolades te tellen
-    brace_count = 0
-    i = start_idx + len(start_marker)
-    end_idx = -1
-    in_string = False
-    string_char = None
-
-    while i < len(html):
-        ch = html[i]
-        if in_string:
-            if ch == "\\" and i + 1 < len(html):
-                i += 2
-                continue
-            if ch == string_char:
-                in_string = False
-        else:
-            if ch in ('"', "'", "`"):
-                in_string = True
-                string_char = ch
-            elif ch == "{":
-                brace_count += 1
-            elif ch == "}":
-                brace_count -= 1
-                if brace_count == 0:
-                    # Zoek de puntkomma na }
-                    j = i + 1
-                    while j < len(html) and html[j] in (" ", "\t", "\r", "\n"):
-                        j += 1
-                    if j < len(html) and html[j] == ";":
-                        end_idx = j + 1
-                    else:
-                        end_idx = i + 1
-                    break
-        i += 1
-
-    if end_idx == -1:
-        # Kon niet vinden, vervang via regex als fallback
-        html_nieuw, _ = re.subn(
-            r"const\s+DATA\s*=\s*\{.*?\};",
-            data_js, html, count=1, flags=re.DOTALL
-        )
-        with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
-            f.write(html_nieuw)
-        return
-
-    html_nieuw = html[:start_idx] + data_js + html[end_idx:]
-    with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
-        f.write(html_nieuw)
-
-
-def refresh_dashboard_bestanden_OLD() -> dict:
-    data = maak_dashboard_data()
-    schrijf_data_json(data)
-    update_dashboard_html(data)
-    return data
-
-
-# ─── GitHub push ─────────────────────────────────────────────────────────────
-
-def github_headers():
-    return {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-
-def github_get_sha(path: str):
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
-    resp = requests.get(url, headers=github_headers(), params={"ref": GITHUB_BRANCH}, timeout=20)
-    if resp.status_code == 404:
-        return None
-    resp.raise_for_status()
-    return resp.json().get("sha")
-
-
-def github_put_file(path: str):
-    if not os.path.exists(path):
-        return False, f"Bestand ontbreekt lokaal: {path}"
-    with open(path, "rb") as f:
-        content = base64.b64encode(f.read()).decode("utf-8")
-    payload = {"message": f"Update Boerenbridge dashboard: {path}", "content": content, "branch": GITHUB_BRANCH}
-    sha = github_get_sha(path)
-    if sha:
-        payload["sha"] = sha
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
-    resp = requests.put(url, headers=github_headers(), json=payload, timeout=30)
-    if resp.status_code not in (200, 201):
-        return False, f"GitHub fout bij {path}: {resp.status_code} {resp.text}"
-    return True, f"{path} gepusht"
-
-
-def push_naar_github():
-    if not GITHUB_TOKEN:
-        return False, "Geen GITHUB_TOKEN ingesteld. Controleer je start.bat of PowerShell sessie."
-    data = lees_dashboard_data_uit_db()
-
-    with open("data.json", "w") as f:
-        json.dump(data, f, indent=2)
-    berichten = []
-    for path in GITHUB_BESTANDEN:
-        ok, msg = github_put_file(path)
-        berichten.append(msg)
-        if not ok:
-            return False, " | ".join(berichten)
-    return True, " | ".join(berichten)
-
-
-# ─── HTML invoer UI ───────────────────────────────────────────────────────────
-
-HTML = """
-<!doctype html>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boerenbridge Invoer</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🃏 Boerenbridge Competitie</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-body{font-family:Arial,sans-serif;background:#14532d;margin:0;padding:24px;color:#111}
-.wrap{max-width:1050px;margin:auto}
-.card{background:#fffaf0;border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,.25);margin-bottom:18px}
-h1{color:#facc15;text-align:center}
-h2{margin-top:0;color:#14532d}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
-.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:8px}
-.check{background:white;border:2px solid #ddd;padding:10px 14px;border-radius:10px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:border-color .2s}
-.check:hover{border-color:#16a34a}
-.check input[type=checkbox]:checked ~ span{font-weight:700}
-.check input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#16a34a}
-.check.geselecteerd{border-color:#16a34a;background:#f0fdf4}
-.counter{font-size:13px;color:#555;margin-bottom:10px}
-.counter .ok{color:#16a34a;font-weight:700}
-.counter .te-weinig{color:#dc2626;font-weight:700}
-input,select,button{font-size:16px;padding:10px;border-radius:10px;border:1px solid #ccc}
-button{cursor:pointer;border:none;font-weight:800;margin-right:8px;margin-top:4px}
-.primary{background:#16a34a;color:white}
-.secondary{background:#facc15;color:#422006}
-.danger{background:#dc2626;color:white}
-.info{background:#3b82f6;color:white}
-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}
-th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-th{background:#14532d;color:white}
-.msg{white-space:pre-wrap;padding:12px;border-radius:10px;display:none;margin-top:14px}
-.ok-msg{background:#dcfce7;color:#14532d}
-.err-msg{background:#fee2e2;color:#7f1d1d}
-.small{color:#555;font-size:13px;margin-top:6px}
-label{display:block;margin-bottom:4px;font-weight:700;font-size:14px}
+  :root {
+    --green: #1a7a3c;
+    --green-light: #2ea84f;
+    --green-dark: #0f4d24;
+    --gold: #f5c842;
+    --gold-dark: #c9a020;
+    --red: #e03030;
+    --card-bg: #fdf8ee;
+    --felt: #1b6b35;
+    --text-dark: #1a1a2e;
+    --text-mid: #3d3d5c;
+    --white: #ffffff;
+    --shadow: 0 4px 20px rgba(0,0,0,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--felt);
+    background-image:
+      radial-gradient(ellipse at 20% 30%, rgba(255,255,255,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 70%, rgba(0,0,0,0.15) 0%, transparent 50%),
+      repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.015) 20px, rgba(255,255,255,0.015) 21px);
+    min-height: 100vh;
+    padding: 24px 16px 40px;
+    color: var(--text-dark);
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .header-inner {
+    display: inline-block;
+    background: linear-gradient(135deg, #0f4d24 0%, #1a7a3c 50%, #0f4d24 100%);
+    border: 3px solid var(--gold);
+    border-radius: 20px;
+    padding: 18px 40px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .header h1 {
+    font-family: 'Lilita One', cursive;
+    font-size: 2.6rem;
+    color: var(--gold);
+    text-shadow: 2px 3px 6px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+  }
+  .header p {
+    color: rgba(255,255,255,0.75);
+    font-size: 0.95rem;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .suits {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+    letter-spacing: 6px;
+  }
+
+  /* DATA SOURCE NOTICE */
+  .data-notice {
+    background: rgba(245, 200, 66, 0.15);
+    border: 1px solid rgba(245, 200, 66, 0.4);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.82rem;
+    margin-bottom: 24px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* KPI CARDS */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    max-width: 900px;
+    margin: 0 auto 28px;
+  }
+  .kpi-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 18px 14px;
+    text-align: center;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-3px); }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .kpi-card.gold::before { background: linear-gradient(90deg, var(--gold-dark), var(--gold)); }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--green-dark), var(--green-light)); }
+  .kpi-card.red::before { background: linear-gradient(90deg, #b02020, var(--red)); }
+  .kpi-card.blue::before { background: linear-gradient(90deg, #1a3a8a, #3b7de0); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, #5a1a8a, #a040e0); }
+  .kpi-icon { font-size: 2rem; margin-bottom: 6px; }
+  .kpi-value {
+    font-family: 'Lilita One', cursive;
+    font-size: 2rem;
+    color: var(--text-dark);
+    line-height: 1;
+  }
+  .kpi-label {
+    font-size: 0.75rem;
+    color: var(--text-mid);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 5px;
+  }
+  .kpi-sub {
+    font-size: 0.78rem;
+    color: #888;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto 20px;
+  }
+  @media (max-width: 720px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Trend indicator in ranking */
+  .trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .trend-indicator.up   { background: #d4f5e2; color: #1a7a3c; }
+  .trend-indicator.down { background: #fde8e8; color: #c0392b; }
+  .trend-indicator.same { background: #f0f0f0; color: #999; }
+  .trend-indicator .arrow { font-size: 0.8rem; }
+
+  /* PANEL */
+  .panel {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+    border: 2px solid rgba(255,255,255,0.25);
+  }
+  .panel.wide {
+    grid-column: 1 / -1;
+  }
+  .panel-title {
+    font-family: 'Lilita One', cursive;
+    font-size: 1.15rem;
+    color: var(--green-dark);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title span { font-size: 1.3rem; }
+
+  /* RANKING TABLE */
+  .ranking-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 6px;
+  }
+  .ranking-table thead th {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    padding: 0 10px 6px;
+    text-align: left;
+  }
+  .ranking-table thead th:last-child { text-align: right; }
+  .ranking-row td {
+    padding: 10px 10px;
+    background: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .ranking-row td:first-child { border-radius: 10px 0 0 10px; }
+  .ranking-row td:last-child { border-radius: 0 10px 10px 0; text-align: right; }
+  .ranking-row:nth-child(1) td { background: linear-gradient(135deg, #fffbe6, #fff9d0); }
+  .ranking-row:nth-child(2) td { background: linear-gradient(135deg, #f5f5f5, #ececec); }
+  .ranking-row:nth-child(3) td { background: linear-gradient(135deg, #fff0e6, #ffe8d0); }
+
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.82rem;
+    margin-right: 6px;
+  }
+  .rank-1 { background: var(--gold); color: #7a5000; }
+  .rank-2 { background: #d0d0d0; color: #444; }
+  .rank-3 { background: #e8a060; color: #6a3010; }
+  .rank-other { background: #e8e8f0; color: #555; }
+
+  .trend-up { color: #2ea84f; font-size: 0.8rem; }
+  .trend-down { color: var(--red); font-size: 0.8rem; }
+  .trend-same { color: #aaa; font-size: 0.8rem; }
+
+  .cp-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .cp-bar-bg { flex: 1; height: 8px; background: #e8e8f0; border-radius: 4px; overflow: hidden; }
+  .cp-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+
+  /* CHART */
+  .chart-wrap { position: relative; height: 340px; }
+
+  /* PLAYER CARDS */
+  .player-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .player-card {
+    background: white;
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+    border: 2px solid #eee;
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: default;
+  }
+  .speler-cel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  } 
+  .speler-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+   .speler-naam {
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .speler-rechts {
+    width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .speler-emoji {
+    width: 22px;
+    text-align: center;
+  }
+  .trend {
+    font-size: 14px;
+  }
+  .player-card:hover { transform: translateY(-2px); border-color: var(--gold); }
+  .player-avatar {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 8px;
+  }
+  .player-name { font-size: 0.82rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
+  .player-stat { font-size: 0.72rem; color: #888; font-weight: 600; }
+  .player-cp { font-family: 'Lilita One', cursive; font-size: 1.3rem; color: var(--green-dark); }
+  .player-badges { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; margin-top: 5px; }
+  .badge { font-size: 0.9rem; }
+
+  /* HISTORY TABLE */
+  .history-wrap { overflow-x: auto; }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    min-width: 500px;
+  }
+  .history-table th {
+    background: var(--green-dark);
+    color: white;
+    padding: 8px 10px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .history-table th:first-child { border-radius: 8px 0 0 0; text-align: left; }
+  .history-table th:last-child { border-radius: 0 8px 0 0; }
+  .history-table td {
+    padding: 7px 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+  }
+  .history-table td:first-child { text-align: left; }
+  .history-table tr:hover td { background: #f5fff8; }
+  .finale-badge { background: var(--gold); color: #7a5000; border-radius: 4px; padding: 1px 5px; font-size: 0.65rem; font-weight: 800; margin-left: 4px; }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 0.78rem;
+    margin-top: 20px;
+    font-weight: 600;
+  }
+  .last-updated {
+    text-align: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.8rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+
+  /* HOW TO UPDATE */
+  .update-panel {
+    background: rgba(15, 77, 36, 0.7);
+    border: 1px solid rgba(245,200,66,0.3);
+    border-radius: 14px;
+    padding: 16px 20px;
+    max-width: 900px;
+    margin: 0 auto 20px;
+    color: rgba(255,255,255,0.85);
+    font-size: 0.82rem;
+  }
+  .update-panel strong { color: var(--gold); }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .panel, .kpi-card { animation: fadeInUp 0.5s ease both; }
+  .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+  .kpi-card:nth-child(2) { animation-delay: 0.10s; }
+  .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+  .kpi-card:nth-child(4) { animation-delay: 0.20s; }
+  .kpi-card:nth-child(5) { animation-delay: 0.25s; }
 </style>
 </head>
 <body>
-<div class="wrap">
-<h1>🃏 Boerenbridge Invoer</h1>
 
-<div class="card">
-  <h2>1. Potje gegevens</h2>
-  <div class="grid">
-    <div><label>Datum</label><input id="datum" type="date"></div>
-    <div><label>Rondes</label><select id="rondes"><option value="7">7</option><option value="10">10</option><option value="13" selected>13</option></select></div>
-    <div><label>Finale?</label><select id="finale"><option value="Nee" selected>Nee</option><option value="Ja">Ja</option></select></div>
+<div class="header">
+  <div class="header-inner">
+    <div class="suits">♠ ♥ ♦ ♣</div>
+    <h1>🃏 Boerenbridge Competitie</h1>
+    <p>Seizoen 2024-2025 · Negen spelers · Wie wordt kampioen?</p>
   </div>
 </div>
 
-<div class="card">
-  <h2>2. Wie deden mee?</h2>
-  <p class="small">Selecteer minimaal 5 en maximaal 9 spelers. Alleen geselecteerde spelers worden opgeslagen.</p>
-  <div id="aantalTeller" class="counter"><span id="aantalLabel" class="te-weinig">0 geselecteerd</span> — minimaal 5 vereist</div>
-  <div id="spelersBox" class="players"></div>
+<div class="data-notice">
+  📊 Dit dashboard leest automatisch de data uit het gekoppelde JSON-bestand. Werk <strong>data.json</strong> bij via je agent om het dashboard te updaten.
 </div>
 
-<div class="card">
-  <h2>3. Uitslag invoeren</h2>
-  <div id="resultatenBox"><p class="small">Selecteer eerst minimaal 5 spelers hierboven.</p></div>
+<div id="kpi-row" class="kpi-row"></div>
+
+<div class="main-grid">
+  <div class="panel">
+    <div class="panel-title"><span>🏆</span> Huidige Ranglijst</div>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Speler</th>
+          <th>Potjes</th>
+          <th>Jaarpunten (top 60%)</th>
+          <th>Trend</th>
+        </tr>
+      </thead>
+      <tbody id="ranking-body"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><span>👤</span> Spelersprofiel</div>
+    <div id="player-grid" class="player-grid"></div>
+  </div>
+
+  <div class="panel wide">
+    <div class="panel-title"><span>📈</span> Ranking over Tijd (CP)</div>
+    <div class="chart-wrap">
+      <canvas id="timeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="panel wide">
+    <div class="panel-title"><span>📋</span> Potjesgeschiedenis</div>
+    <div class="history-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Spel ID</th>
+            <th>Datum</th>
+            <th>Rondes</th>
+            <th>Winnaar</th>
+            <th>Finale</th>
+            <th>Slagen Koning</th>
+            <th>Top CP</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
-<div class="card">
-  <button class="primary" onclick="slaOp()">💾 Opslaan in Excel + Dashboard bijwerken</button>
-  <button class="secondary" onclick="pushGithub()">🚀 Push naar GitHub</button>
-  <button class="danger" onclick="resetSelectie()">🔄 Reset selectie</button>
-  <div id="bericht" class="msg"></div>
+<div class="update-panel">
+  💡 <strong>Hoe data bijwerken?</strong> Laat je agent het bestand <strong>data.json</strong> genereren vanuit het Excel bestand en upload het naast dit HTML-bestand. Het dashboard laadt automatisch de nieuwe data.
+  De JSON-structuur staat onderaan dit bestand als commentaar.
 </div>
-</div>
+
+<div class="footer">Boerenbridge Dashboard · Gebouwd met ❤️ voor jullie groep</div>
 
 <script>
-const SPELERS = {{ spelers|tojson }};
-document.getElementById('datum').valueAsDate = new Date();
+// ============================================================
+// DATA — vervang dit object door de inhoud van data.json
+// of koppel via fetch('data.json') als je het apart opslaat
+// ============================================================
+ 
+function mapJaarstand(data) {
+  const map = {};
 
-function toonBericht(text, ok=true){
-  const el=document.getElementById('bericht');
-  el.style.display='block';
-  el.className='msg '+(ok?'ok-msg':'err-msg');
-  el.textContent=text;
-}
-
-function renderSpelers(){
-  document.getElementById('spelersBox').innerHTML = SPELERS.map(s =>
-    `<label class="check" id="check_${s.replace(/ /g,'_')}">
-      <input type="checkbox" class="spelerCheck" value="${s}" onchange="onSpelerChange()">
-      <span>${s}</span>
-    </label>`
-  ).join('');
-}
-
-function geselecteerdeSpelers(){
-  return [...document.querySelectorAll('.spelerCheck:checked')].map(x => x.value);
-}
-
-function onSpelerChange(){
-  const geselecteerd = geselecteerdeSpelers();
-  const n = geselecteerd.length;
-  // Update visuele staat van labels
-  document.querySelectorAll('.check').forEach(el => {
-    const cb = el.querySelector('input[type=checkbox]');
-    el.classList.toggle('geselecteerd', cb.checked);
+  data.jaarstand.forEach(r => {
+    map[r.speler] = {
+      cpTotaal: r.jaarpunten,
+      potjesGespeeld: r.t,
+      overwinningen: r.wins,
+      slagenKoningTitels: r.slagen_k,
+      ongeslagenWins: r.ongeslagen,
+      gemCP: r.gem_topk,
+      K: r.k
+    };
   });
-  // Update teller
-  const label = document.getElementById('aantalLabel');
-  label.textContent = `${n} geselecteerd`;
-  label.className = n >= 5 ? 'ok' : 'te-weinig';
-  renderResultaten();
-}
 
-function renderResultaten(){
-  const spelers = geselecteerdeSpelers();
-  const box = document.getElementById('resultatenBox');
-  if(spelers.length < 5){
-    box.innerHTML = '<p class="small">Selecteer minimaal 5 spelers om de uitslagtabel te zien.</p>';
-    return;
+  // Bereken de vorige ranglijst: stand zoals die was NA het op-één-na-laatste potje.
+  // Dit werkt puur op basis van de potjes-array — geen extra veld in data.json nodig.
+  if (data.potjes && data.potjes.length >= 2) {
+    const spelers = data.spelers || Object.keys(map);
+    const aantalPotjes = data.potjes.length;
+    const vorigeAantal = aantalPotjes - 1;
+    const vorigeK = Math.ceil(vorigeAantal * 0.6);
+
+    // Verzamel CP scores per speler t/m potje vorigeAantal - 1
+    const cpPerSpeler = {};
+    spelers.forEach(s => { cpPerSpeler[s] = []; });
+
+    for (let i = 0; i < vorigeAantal; i++) {
+      data.potjes[i].resultaten.forEach(r => {
+        if (cpPerSpeler[r.speler] !== undefined) {
+          cpPerSpeler[r.speler].push(r.cpTotaal);
+        }
+      });
+    }
+
+    // Bereken jaarpunten op dat moment
+    const vorigeScores = {};
+    spelers.forEach(s => {
+      const sorted = [...cpPerSpeler[s]].sort((a, b) => b - a);
+      vorigeScores[s] = sorted.slice(0, vorigeK).reduce((sum, v) => sum + v, 0);
+    });
+
+    // Rangschik op vorige stand
+    const vorigeRanking = spelers
+      .slice()
+      .sort((a, b) => vorigeScores[b] - vorigeScores[a]);
+
+    vorigeRanking.forEach((speler, idx) => {
+      if (map[speler]) map[speler].prevRank = idx + 1;
+    });
   }
-  box.innerHTML = `
-    <table>
-      <thead><tr>
-        <th>Speler</th>
-        <th>Eindscore</th>
-        <th>Slagen gehaald</th>
-        <th>Ongeslagen winst?</th>
-      </tr></thead>
-      <tbody>
-        ${spelers.map(s => `
-          <tr data-speler="${s}">
-            <td><strong>${s}</strong></td>
-            <td><input type="number" class="score" placeholder="bijv. 210" required style="width:110px"></td>
-            <td><input type="number" class="slagen" value="0" min="0" required style="width:80px"></td>
-            <td><select class="ongeslagen">
-              <option value="Nee" selected>Nee</option>
-              <option value="Ja">Ja</option>
-            </select></td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
+
+  return map;
 }
 
-function payload(){
-  const rows = [...document.querySelectorAll('#resultatenBox tbody tr')];
-  return {
-    datum: document.getElementById('datum').value,
-    rondes: Number(document.getElementById('rondes').value),
-    finale: document.getElementById('finale').value,
-    spelers: rows.map(row => ({
-      naam: row.dataset.speler,
-      score: row.querySelector('.score').value,
-      slagen: row.querySelector('.slagen').value,
-      ongeslagen: row.querySelector('.ongeslagen').value
-    }))
-  };
+fetch("data.json?v=" + Date.now())
+  .then(res => res.json())
+  .then(data => {
+    window.DATA = data;
+
+    const stats = mapJaarstand(data);  // ✅ LET OP: data meegeven
+
+    renderKPI(stats);
+    renderRanking(stats);
+    renderChart();
+    renderPlayerCards(stats);
+    renderHistory();
+    renderLastUpdated();
+  })
+  .catch(err => {
+    console.error("ERROR loading data.json:", err);
+  });
+
+
+// ============================================================
+// KLEUR PALET PER SPELER
+// ============================================================
+const KLEUREN = {
+  "The Grey One":     {bg:"#6c757d", chart:"#6c757d", emoji:"🎩"},
+  "Sporty Mum":       {bg:"#e84393", chart:"#e84393", emoji:"🏃"},
+  "CinCity":          {bg:"#ff6b35", chart:"#ff6b35", emoji:"🎬"},
+  "Miss Sunshine":    {bg:"#ffd700", chart:"#daa520", emoji:"☀️"},
+  "Colonel Mustard":  {bg:"#8b6914", chart:"#c9a020", emoji:"🎖️"},
+  "Vixen":           {bg:"#20b2aa", chart:"#20b2aa", emoji:"⚡"},
+  "Miss Thunder":     {bg:"#9b59b6", chart:"#9b59b6", emoji:"⛈️"},
+  "Punda":            {bg:"#e74c3c", chart:"#e74c3c", emoji:"🦓"},
+  "Billy Bat":        {bg:"#2ecc71", chart:"#2ecc71", emoji:"🦇"}
+};
+
+// ============================================================
+// VERWERK DATA
+// Jaarpunten = som van beste 60% (K = ceil(T * 0.6)) van CP scores
+// Dit is exact hetzelfde als kolom D in tabblad Jaarstand
+// ============================================================
+function berekenStats() {
+  const stats = {};
+  DATA.spelers.forEach(s => {
+    stats[s] = { cpTotaal:0, potjesGespeeld:0, overwinningen:0, slagenKoningTitels:0, ongeslagenWins:0, gemCP:0, cpPerPotje:[], K:0 };
+  });
+
+  DATA.potjes.forEach(potje => {
+    potje.resultaten.forEach(r => {
+      if (!stats[r.speler]) return;
+      stats[r.speler].potjesGespeeld++;
+      if (r.plaats === 1) stats[r.speler].overwinningen++;
+      if (r.slagenKoning) stats[r.speler].slagenKoningTitels++;
+      if (r.ongeslagenWinnaar) stats[r.speler].ongeslagenWins++;
+      stats[r.speler].cpPerPotje.push({ gameId: potje.gameId, datum: potje.datum, cp: r.cpTotaal });
+    });
+  });
+
+  // Bepaal K op basis van TOTAAL gespeelde potjes (iedereen telt mee)
+  const totalPotjes = DATA.potjes.length;
+  const K = Math.ceil(totalPotjes * 0.6);
+
+  Object.keys(stats).forEach(s => {
+    const sorted = [...stats[s].cpPerPotje].sort((a,b) => b.cp - a.cp);
+    const topK = sorted.slice(0, K);
+    stats[s].K = K;
+    stats[s].cpTotaal = topK.reduce((sum, p) => sum + p.cp, 0);
+    stats[s].gemCP = topK.length > 0 ? stats[s].cpTotaal / topK.length : 0;
+  });
+
+  return stats;
 }
 
-async function slaOp(){
-  try{
-    const p = payload();
-    if(p.spelers.length < 5){ toonBericht('Selecteer minimaal 5 spelers.', false); return; }
-    if(p.spelers.some(s => s.score === '')){ toonBericht('Vul voor iedere geselecteerde speler een eindscore in.', false); return; }
-    const res = await fetch('/sla-op', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(p)});
-    const data = await res.json();
-    if(!data.ok) throw new Error(data.fout + '\\n' + (data.detail || ''));
-    toonBericht(`✅ Opgeslagen! GameID: ${data.gameId}\\nExcel (Invoer + Jaarstand), data.json en index.html zijn lokaal bijgewerkt.`, true);
-  }catch(e){ toonBericht(e.message, false); }
+// ============================================================
+// CUMULATIEF CHART: per potje de huidige jaarpunten (top 60%)
+// ============================================================
+function berekenCumulatiefCP() {
+  const cumul = {};
+  DATA.spelers.forEach(s => { cumul[s] = []; });
+
+  DATA.potjes.forEach((potje, idx) => {
+    const totTotNu = idx + 1;
+    const KNu = Math.ceil(totTotNu * 0.6);
+
+    // Verzamel alle CP scores tot en met dit potje per speler
+    const cpPerSpeler = {};
+    DATA.spelers.forEach(s => { cpPerSpeler[s] = []; });
+
+    for (let i = 0; i <= idx; i++) {
+      DATA.potjes[i].resultaten.forEach(r => {
+        if (cpPerSpeler[r.speler] !== undefined) cpPerSpeler[r.speler].push(r.cpTotaal);
+      });
+    }
+
+    DATA.spelers.forEach(s => {
+      const sorted = [...cpPerSpeler[s]].sort((a,b) => b - a);
+      const topK = sorted.slice(0, KNu);
+      cumul[s].push(topK.reduce((sum, v) => sum + v, 0));
+    });
+  });
+
+  return cumul;
 }
 
-async function pushGithub(){
-  try{
-    toonBericht('Bezig met pushen naar GitHub...', true);
-    const res = await fetch('/push-github', {method:'POST'});
-    const data = await res.json();
-    if(!data.ok) throw new Error(data.bericht);
-    toonBericht('🚀 ' + data.bericht, true);
-  }catch(e){ toonBericht(e.message, false); }
+// ============================================================
+// RENDER KPI
+// ============================================================
+function renderKPI(stats) {
+  const ranked = Object.entries(stats).sort((a,b) => b[1].cpTotaal - a[1].cpTotaal);
+  const nummer1 = ranked[0];
+  const totPotjes = DATA.potjes.length;
+  const K = Math.ceil(totPotjes * 0.6);
+  const totCP = Object.values(stats).reduce((s,v) => s + v.cpTotaal, 0);
+  const gemCP = totCP / Object.keys(stats).length;
+  const meesteSlagenKoning = Object.entries(stats).sort((a,b) => b[1].slagenKoningTitels - a[1].slagenKoningTitels)[0];
+  const mesteWins = Object.entries(stats).sort((a,b) => b[1].overwinningen - a[1].overwinningen)[0];
+
+  const kpis = [
+    { icon:"🃏", value: totPotjes, label:"Potjes Gespeeld", sub:"Totaal dit seizoen", klasse:"gold" },
+    { icon:"📊", value: gemCP.toFixed(1), label:"Gem. Jaarpunten", sub:`Top ${K} van ${totPotjes} potjes telt mee`, klasse:"green" },
+    { icon:"👑", value: KLEUREN[nummer1[0]]?.emoji + " " + nummer1[0].split(" ")[0], label:"Huidige #1", sub: nummer1[1].cpTotaal.toFixed(1) + " CP totaal", klasse:"red" },
+    { icon:"⚔️", value: KLEUREN[meesteSlagenKoning[0]]?.emoji + " " + meesteSlagenKoning[0].split(" ")[0], label:"Slagen Koning", sub: meesteSlagenKoning[1].slagenKoningTitels + "× de titel", klasse:"blue" },
+    { icon:"🏅", value: KLEUREN[mesteWins[0]]?.emoji + " " + mesteWins[0].split(" ")[0], label:"Meeste Wins", sub: mesteWins[1].overwinningen + " overwinningen", klasse:"purple" }
+  ];
+
+  const row = document.getElementById('kpi-row');
+  row.innerHTML = kpis.map(k => `
+    <div class="kpi-card ${k.klasse}">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
 }
 
-function resetSelectie(){
-  document.querySelectorAll('.spelerCheck').forEach(x => x.checked = false);
-  document.querySelectorAll('.check').forEach(el => el.classList.remove('geselecteerd'));
-  document.getElementById('aantalLabel').textContent = '0 geselecteerd';
-  document.getElementById('aantalLabel').className = 'te-weinig';
-  renderResultaten();
+// ============================================================
+// RENDER RANKING TABLE
+// ============================================================
+function renderRanking(stats) {
+  const ranked = Object.entries(stats).sort((a,b) => b[1].cpTotaal - a[1].cpTotaal);
+  const maxCP = ranked[0][1].cpTotaal;
+
+  const tbody = document.getElementById('ranking-body');
+  tbody.innerHTML = ranked.map(([naam, s], i) => {
+    const vorige = s.prevRank || (i+1);
+    const huidige = i + 1;
+    const diff = vorige - huidige; // positief = gestegen
+    let trendHTML;
+    if (diff > 0) {
+      trendHTML = `<span class="trend-indicator up"><span class="arrow">&#9650;</span> +${diff}</span>`;
+    } else if (diff < 0) {
+      trendHTML = `<span class="trend-indicator down"><span class="arrow">&#9660;</span> ${diff}</span>`;
+    } else {
+      trendHTML = `<span class="trend-indicator same">&#8212;</span>`;
+    }
+
+    const kleur = KLEUREN[naam] || {bg:"#999", emoji:"🃏"};
+    const pct = (s.cpTotaal / maxCP * 100).toFixed(1);
+    const badgeKlasse = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    return `
+      <tr class="ranking-row">
+        <td><span class="rank-badge ${badgeKlasse}">${i+1}</span>${medal}</td>
+        <td>
+          <div class="speler-cel">
+            <div class="speler-links">
+              <span class="speler-emoji">${kleur.emoji}</span>
+              <span class="speler-naam">${naam}</span>
+            </div>
+          </div>
+        </td>
+        <td>${s.potjesGespeeld}</td>
+        <td>
+          <div class="cp-bar-wrap">
+            <div class="cp-bar-bg"><div class="cp-bar" style="width:${pct}%;background:${kleur.bg}"></div></div>
+            <strong>${s.cpTotaal.toFixed(1)}</strong>
+          </div>
+        </td>
+        <td>${trendHTML}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
-renderSpelers();
+// ============================================================
+// RENDER LINE CHART
+// ============================================================
+function renderChart() {
+  const cumul = berekenCumulatiefCP();
+  const labels = DATA.potjes.map(p => p.gameId);
+
+  const datasets = DATA.spelers.map(s => ({
+    label: s,
+    data: cumul[s],
+    borderColor: KLEUREN[s]?.chart || '#999',
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    tension: 0.35
+  }));
+
+  new Chart(document.getElementById('timeChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 10, family: 'Nunito', weight: '700' }, boxWidth: 12, padding: 8 }
+        },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// RENDER PLAYER CARDS
+// ============================================================
+function renderPlayerCards(stats) {
+  const ranked = Object.entries(stats).sort((a,b) => b[1].cpTotaal - a[1].cpTotaal);
+  const grid = document.getElementById('player-grid');
+  grid.innerHTML = ranked.map(([naam, s], i) => {
+    const kleur = KLEUREN[naam] || {bg:"#999", emoji:"🃏"};
+    const badges = [];
+    if (i === 0) badges.push('👑');
+    if (s.slagenKoningTitels > 0) badges.push('⚔️');
+    if (s.ongeslagenWins > 0) badges.push('🛡️');
+    if (s.overwinningen >= 2) badges.push('🏆');
+    return `
+      <div class="player-card">
+        <div class="player-avatar" style="background:${kleur.bg}20;border:2px solid ${kleur.bg}">${kleur.emoji}</div>
+        <div class="player-name">${naam}</div>
+        <div class="player-cp">${s.cpTotaal.toFixed(1)}</div>
+        <div class="player-stat">Jaarpunten · #${i+1}</div>
+        <div class="player-stat" style="margin-top:4px">top ${s.K} potjes · gem ${s.gemCP.toFixed(1)}/potje</div>
+        <div class="player-stat">🏆 ${s.overwinningen}w · ⚔️ ${s.slagenKoningTitels}sk</div>
+        <div class="player-badges">${badges.map(b => `<span class="badge">${b}</span>`).join('')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// RENDER HISTORY TABLE
+// ============================================================
+function renderHistory() {
+  const tbody = document.getElementById('history-body');
+  tbody.innerHTML = [...DATA.potjes].reverse().map(p => {
+    const winnaar = p.resultaten.find(r => r.plaats === 1);
+    const slagenKoningen = p.resultaten.filter(r => r.slagenKoning).map(r => r.speler.split(" ")[0]);
+    const kleur = KLEUREN[winnaar?.speler] || {emoji:"🃏"};
+    const datum = new Date(p.datum).toLocaleDateString('nl-NL', {day:'numeric', month:'short', year:'numeric'});
+    return `
+      <tr>
+        <td><strong>${p.gameId}</strong>${p.finale ? '<span class="finale-badge">FINALE</span>' : ''}</td>
+        <td>${datum}</td>
+        <td>${p.rondes} rondes</td>
+        <td>${kleur.emoji} ${winnaar?.speler || '?'}</td>
+        <td>${p.finale ? '⭐ Finale' : '-'}</td>
+        <td>${slagenKoningen.length ? '⚔️ ' + slagenKoningen.join(', ') : '-'}</td>
+        <td><strong>${Math.max(...p.resultaten.map(r => r.cpTotaal)).toFixed(1)}</strong></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// LAST UPDATED
+// ============================================================
+function renderLastUpdated() {
+  const el = document.createElement('div');
+  el.className = 'last-updated';
+  el.textContent = `⏱ Laatste update: ${DATA.lastUpdated}`;
+  document.querySelector('.header').after(el);
+}
+
+// ============================================================
+// INITIALISEER
+// ============================================================
+
+
+/*
+JSON STRUCTUUR VOOR data.json:
+{
+  "lastUpdated": "YYYY-MM-DD",
+  "spelers": ["naam1", "naam2", ...],
+  "potjes": [
+    {
+      "gameId": "1-A",
+      "datum": "YYYY-MM-DD",
+      "rondes": 10,
+      "finale": false,
+      "resultaten": [
+        {
+          "speler": "naam",
+          "plaats": 1,
+          "cpTotaal": 92.7,
+          "slagen": 30,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": true
+        }
+      ]
+    }
+  ]
+}
+*/
 </script>
 </body>
 </html>
-"""
-
-
-# ─── Flask routes ─────────────────────────────────────────────────────────────
-
-@app.route("/")
-def index():
-    return render_template_string(HTML, spelers=SPELERS)
-
-
-@app.route("/sla-op", methods=["POST"])
-def sla_op():
-    try:
-        payload_data = request.get_json(force=True)
-
-        game_id = payload_data.get("gameId")
-
-        if not game_id:
-            print("DEBUG DB path:", DB_PAD)
-            print("DEBUG absolute path:", os.path.abspath(DB_PAD))
-
-            conn = sqlite3.connect(DB_PAD)
-            c = conn.cursor()
-
-            c.execute("""
-                    SELECT game_id FROM potjes
-                    ORDER BY CAST(SUBSTR(game_id, 1, INSTR(game_id, '-') - 1) AS INTEGER) DESC
-                    LIMIT 1
-                """) 
-            last = c.fetchone()
-
-            if last:
-                nummer = int(last[0].split("-")[0]) + 1
-            else:                    nummer = 1
-
-            game_id = f"{nummer}-A"
-
-            conn.close()
-
-
-        spelers_input = payload_data["spelers"]  # lijst met dicts: {"naam","score","slagen","ongeslagen"(bool)}
-        rondes = int(payload_data["rondes"])
-        finale = (normaliseer_ja_nee(payload_data.get("finale", False)) == "Ja")
-
-        n = len(spelers_input)
-
-        # Rule: minimaal 5 spelers om mee te tellen
-        if n < 5:
-            raise ValueError("Minimaal 5 spelers per potje om mee te tellen.")
-
-        if rondes not in (7, 10, 13):
-            raise ValueError("Rondes moet 7, 10 of 13 zijn.")
-
-        # max slagen voor slagen-koning bonus
-        max_slagen = max(int(p.get("slagen", 0)) for p in spelers_input) if spelers_input else 0
-
-        # sorteer op eindscore (desc), tie-break op slagen (desc), daarna naam (stabiel)
-        sorted_spelers = sorted(
-            spelers_input,
-            key=lambda p: (-int(p.get("score", 0)), -int(p.get("slagen", 0)), str(p.get("naam", "")))
-        )
-
-        resultaten = []
-        for idx, p in enumerate(sorted_spelers):
-            plaats = idx + 1
-            naam = str(p["naam"])
-            eindscore = int(p.get("score", 0))
-            slagen = int(p.get("slagen", 0))
-
-            # ongeslagen: alleen winnaar telt (+5 alleen bij p=1)
-            ongeslagen_flag = (normaliseer_ja_nee(p.get("ongeslagen", False)) == "Ja")
-            ongeslagen_winnaar = (plaats == 1 and ongeslagen_flag)
-
-            calc = bereken_cp_totaal(
-                plaats=plaats, n=n, rondes=rondes,
-                finale=finale,
-                slagen=slagen, max_slagen=max_slagen,
-                ongeslagen_winnaar=ongeslagen_winnaar
-            )
-
-            resultaten.append({
-                "speler": naam,
-                "eindscore": eindscore,
-                "n": n,
-                "plaats": plaats,
-                "pf": calc["pf"],
-                "sf": calc["sf"],
-                "rf": calc["rf"],
-                "cp": calc["cp"],
-                "slagen": slagen,
-                "finale": finale,
-                "ongeslagenWinnaar": ongeslagen_winnaar,
-                "slagenKoning": calc["slagen_koning"],
-                "bonusSlagenKoning": calc["bonus_slagen_koning"],
-                "bonusOngeslagen": calc["bonus_ongeslagen"],
-                "finaleMultiplier": calc["finale_multiplier"],
-                "bonusTotaal": calc.get("bonus_totaal", 0),
-                "cpTotaal": calc["cp_totaal"],
-            })
-
-          
-        game = {
-            "gameId": game_id,
-            "datum": payload_data.get("datum"),
-            "rondes": rondes,
-            "finale": finale,
-            "resultaten": resultaten
-        }
-        
-        game_id = voeg_toe_aan_db(game)
-
-        # dashboard opnieuw bouwen uit DB
-        data = lees_dashboard_data_uit_db()
-        with open("data.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        try:
-            push_github()
-            print("✅ Auto push naar GitHub gelukt!")
-        except Exception as e:
-            print("⚠️ Auto push naar GitHub mislukt:", str(e))
-
-        return jsonify({"ok": True, "gameId": game_id})
-
-    except Exception as e:
-        import traceback
-        return jsonify({"ok": False, "fout": str(e), "detail": traceback.format_exc()}), 400
-
-
-@app.route("/refresh-dashboard", methods=["POST"])
-def refresh_dashboard():
-    try:
-        data = lees_dashboard_data_uit_db()
-
-        with open("data.json", "w") as f:
-            json.dump(data, f, indent=2)
-
-        return jsonify({"ok": True, "aantalPotjes": len(data["potjes"])})
-    except Exception as e:
-        import traceback
-        return jsonify({"ok": False, "fout": str(e), "detail": traceback.format_exc()}), 400
-
-
-@app.route("/push-github", methods=["POST"])
-def push_github():
-    ok, bericht = push_naar_github()
-    return jsonify({"ok": ok, "bericht": bericht})
-
-
-@app.route("/data.json")
-def serve_data_json():
-    try:
-        data = lees_dashboard_data_uit_db()
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"ok": False, "fout": str(e)}), 500
-
-@app.route("/jaarstand")
-def jaarstand_route():
-    try:
-        jaarstand = bereken_en_schrijf_jaarstand_db()
-        return jsonify({
-            "ok": True,
-            "jaarstand": jaarstand
-        })
-    except Exception as e:
-        import traceback
-        return jsonify({
-            "ok": False,
-            "fout": str(e),
-            "detail": traceback.format_exc()
-        }), 500
-
-@app.route("/init-db", methods=["POST"])
-def init_db_route():
-    """Initialiseer de SQLite database."""
-    try:
-        init_db()
-        return jsonify({"ok": True, "bericht": f"Database aangemaakt: {DB_PAD}"})
-    except Exception as e:
-        return jsonify({"ok": False, "fout": str(e)}), 500
-
-
-@app.route("/migreer-naar-db", methods=["POST"])
-def migreer_naar_db():
-    """Migreer alle bestaande Excel data naar de SQLite database."""
-    try:
-        init_db()
-        wb = open_wb(data_only=True)
-        ws = wb["Invoer"]
-        records = lees_invoer_records_uit_ws(ws)
-
-        # Groepeer per game_id
-        potjes = defaultdict(list)
-        for r in records:
-            if r["speler"] and r["gameId"]:
-                potjes[r["gameId"]].append(r)
-
-        conn = sqlite3.connect(DB_PAD)
-        c = conn.cursor()
-        c.execute("DELETE FROM resultaten")
-        c.execute("DELETE FROM potjes")
-        c.execute("DELETE FROM jaarstand")
-
-        for game_id, rows in potjes.items():
-            datum = rows[0]["datum"] or date.today().isoformat()
-            rondes = rows[0]["rondes"] or 13
-            finale = "Ja" if any(r["finale"] for r in rows) else "Nee"
-            c.execute(
-                "INSERT OR REPLACE INTO potjes (game_id, datum, rondes, finale) VALUES (?,?,?,?)",
-                (game_id, datum, rondes, finale)
-            )
-            for r in rows:
-                if not is_nummer(r["cpTotaal"]):
-                    continue
-                c.execute("""
-                    INSERT INTO resultaten
-                    (game_id, speler, eindscore, n_spelers, plaats, pf, sf, rf, cp,
-                     slagen_gehaald, slagen_koning, bonus_slagen, ongeslagen_winnaar,
-                     bonus_ongeslagen, finale_multiplier, bonus_totaal, cp_totaal)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    game_id, r["speler"], r.get("eindscore") or 0,
-                    r.get("n") or 9, r.get("plaats") or 9,
-                    0, 0, 0, r.get("cp") or 0,
-                    r.get("slagen") or 0,
-                    "Ja" if r["slagenKoning"] else "Nee", 0,
-                    "Ja" if r["ongeslagenWinnaar"] else "Nee", 0, 1, 0,
-                    float(r["cpTotaal"])
-                ))
-
-        bereken_jaarstand_db(c)
-        conn.commit()
-        conn.close()
-
-        return jsonify({"ok": True, "bericht": f"{sum(len(v) for v in potjes.values())} records gemigreerd naar {DB_PAD}"})
-    except Exception as e:
-        import traceback
-        return jsonify({"ok": False, "fout": str(e), "detail": traceback.format_exc()}), 500
-
-@app.route("/view")
-def view():
-    path = os.path.join(os.path.dirname(__file__), "index.html")
-    return send_file(path)
-
-if __name__ == "__main__":
-    init_db()
-    print("=" * 50)
-    print("🃏 Boerenbridge Agent v3 gestart")
-    print("Open je browser op: http://localhost:5000")
-    print("=" * 50)
-    print("ROUTES:")
-    for rule in app.url_map.iter_rules():
-        print(rule)
-    print("RUNNING FILE:", __file__)
-    app.run(debug=False, port=5000)
