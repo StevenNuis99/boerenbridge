@@ -239,6 +239,24 @@
     transition: transform 0.2s, border-color 0.2s;
     cursor: default;
   }
+  .speler-cel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .speler-emoji {
+    width: 22px;
+    text-align: center;
+  }
+  .speler-naam {
+    flex: 1;
+    font-weight: 700;
+  }
+  .trend {
+    width: 28px;
+    text-align: right;
+    font-size: 14px;
+  }
   .player-card:hover { transform: translateY(-2px); border-color: var(--gold); }
   .player-avatar {
     width: 46px; height: 46px;
@@ -576,7 +594,13 @@ function renderRanking(stats) {
     return `
       <tr class="ranking-row">
         <td><span class="rank-badge ${badgeKlasse}">${i+1}</span>${medal}</td>
-        <td>${kleur.emoji} ${naam} ${trend}</td>
+        <td>
+          <div class="speler-cel">
+            <span class="speler-emoji">${kleur.emoji}</span>
+            <span class="speler-naam">${naam}</span>
+            <span class="trend">${trend}</span>
+          </div>
+        </td>
         <td>${s.potjesGespeeld}</td>
         <td>
           <div class="cp-bar-wrap">
