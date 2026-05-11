@@ -2,7 +2,6 @@
   "lastUpdated": "2026-05-11 17:16",
   "spelers": [
     "Billy Bat",
-    "Choppy",
     "CinCity",
     "Colonel Mustard",
     "Miss Sunshine",
@@ -331,14 +330,7 @@
           "slagenKoning": false,
           "ongeslagenWinnaar": false
         },
-        {
-          "speler": "Choppy",
-          "plaats": 4,
-          "cpTotaal": 66.7,
-          "slagen": 21,
-          "slagenKoning": false,
-          "ongeslagenWinnaar": false
-        },
+        
         {
           "speler": "Colonel Mustard",
           "plaats": 5,
@@ -408,14 +400,6 @@
           "plaats": 3,
           "cpTotaal": 77.8,
           "slagen": 18,
-          "slagenKoning": false,
-          "ongeslagenWinnaar": false
-        },
-        {
-          "speler": "Choppy",
-          "plaats": 4,
-          "cpTotaal": 66.7,
-          "slagen": 17,
           "slagenKoning": false,
           "ongeslagenWinnaar": false
         },
@@ -491,14 +475,7 @@
           "slagenKoning": false,
           "ongeslagenWinnaar": false
         },
-        {
-          "speler": "Choppy",
-          "plaats": 4,
-          "cpTotaal": 66.7,
-          "slagen": 16,
-          "slagenKoning": false,
-          "ongeslagenWinnaar": false
-        },
+       
         {
           "speler": "Colonel Mustard",
           "plaats": 5,
@@ -1069,19 +1046,6 @@
       "ongeslagen": 0,
       "rang": 9
     },
-    {
-      "speler": "Choppy",
-      "t": 3,
-      "k": 2,
-      "jaarpunten": 133.4,
-      "wins": 0,
-      "beste": 66.7,
-      "gem_topk": 66.7,
-      "kampioen_waardig": "Nee",
-      "finales": 0,
-      "slagen_k": 0,
-      "ongeslagen": 0,
-      "rang": 10
-    }
+    
   ]
 }
