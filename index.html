@@ -761,7 +761,7 @@ function renderHistory() {
     const kleur = KLEUREN[winnaar?.speler] || {emoji:"🃏"};
     const datum = new Date(p.datum).toLocaleDateString('nl-NL', {day:'numeric', month:'short', year:'numeric'});
     return `
-      <tr>
+      <tr class="history-row" data-gameid="${p.gameId}" style="cursor:pointer;">
         <td><strong>${p.gameId}</strong>${p.finale ? '<span class="finale-badge">FINALE</span>' : ''}</td>
         <td>${datum}</td>
         <td>${p.rondes} rondes</td>
@@ -783,6 +783,13 @@ function renderLastUpdated() {
   el.textContent = `⏱ Laatste update: ${DATA.lastUpdated}`;
   document.querySelector('.header').after(el);
 }
+
+document.addEventListener('click', function(e) {
+  const row = e.target.closest('.history-row');
+  if (!row) return;
+    const gameId = row.dataset.gameid;;
+    console.log("Geklikt op potje:", gameId); 
+});
 
 // ============================================================
 // INITIALISEER
