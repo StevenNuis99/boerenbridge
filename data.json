@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-11 22:03",
+  "lastUpdated": "2026-05-11 23:02",
   "spelers": [
     "Billy Bat",
     "CinCity",
@@ -24,7 +24,9 @@
           "cpTotaal": 100.0,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 180,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -32,7 +34,9 @@
           "cpTotaal": 88.9,
           "slagen": 17,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 160,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -40,7 +44,9 @@
           "cpTotaal": 77.8,
           "slagen": 12,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 150,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -48,7 +54,9 @@
           "cpTotaal": 66.7,
           "slagen": 15,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 140,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -56,7 +64,9 @@
           "cpTotaal": 55.6,
           "slagen": 14,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 130,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -64,7 +74,9 @@
           "cpTotaal": 44.4,
           "slagen": 13,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 120,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -72,7 +84,9 @@
           "cpTotaal": 33.3,
           "slagen": 11,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 110,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -80,7 +94,9 @@
           "cpTotaal": 25.2,
           "slagen": 24,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 102,
+          "bonus": 3
         },
         {
           "speler": "The Grey One",
@@ -88,7 +104,9 @@
           "cpTotaal": 11.1,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 100,
+          "bonus": 0
         }
       ]
     },
@@ -104,7 +122,9 @@
           "cpTotaal": 105.0,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": true
+          "ongeslagenWinnaar": true,
+          "punten": 299,
+          "bonus": 5
         },
         {
           "speler": "Billy Bat",
@@ -112,7 +132,9 @@
           "cpTotaal": 88.9,
           "slagen": 0,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 281,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -120,7 +142,9 @@
           "cpTotaal": 77.8,
           "slagen": 18,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -128,7 +152,9 @@
           "cpTotaal": 66.7,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -136,7 +162,9 @@
           "cpTotaal": 55.6,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 182,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -144,7 +172,9 @@
           "cpTotaal": 44.4,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 178,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -152,7 +182,9 @@
           "cpTotaal": 33.3,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 170,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -160,7 +192,9 @@
           "cpTotaal": 25.2,
           "slagen": 21,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 130,
+          "bonus": 3
         },
         {
           "speler": "Sporty Mum",
@@ -168,7 +202,9 @@
           "cpTotaal": 11.1,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 129,
+          "bonus": 0
         }
       ]
     },
@@ -184,7 +220,9 @@
           "cpTotaal": 87.7,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -192,7 +230,9 @@
           "cpTotaal": 78.0,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 182,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -200,7 +240,9 @@
           "cpTotaal": 68.2,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 178,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -208,7 +250,9 @@
           "cpTotaal": 58.5,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 170,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -216,7 +260,9 @@
           "cpTotaal": 51.7,
           "slagen": 21,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 130,
+          "bonus": 3
         },
         {
           "speler": "Sporty Mum",
@@ -224,7 +270,9 @@
           "cpTotaal": 39.0,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 129,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -232,7 +280,9 @@
           "cpTotaal": 29.2,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 29,
+          "bonus": 0
         },
         {
           "speler": "Billy Bat",
@@ -240,7 +290,9 @@
           "cpTotaal": 19.5,
           "slagen": 0,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 28,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -248,7 +300,9 @@
           "cpTotaal": 9.7,
           "slagen": 18,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 21,
+          "bonus": 0
         }
       ]
     },
@@ -264,7 +318,9 @@
           "cpTotaal": 55.0,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 199,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -272,7 +328,9 @@
           "cpTotaal": 47.2,
           "slagen": 9,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 192,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -280,7 +338,9 @@
           "cpTotaal": 39.3,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -288,7 +348,9 @@
           "cpTotaal": 34.4,
           "slagen": 21,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 180,
+          "bonus": 3
         },
         {
           "speler": "Billy Bat",
@@ -296,7 +358,9 @@
           "cpTotaal": 23.6,
           "slagen": 18,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 170,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -304,7 +368,9 @@
           "cpTotaal": 15.7,
           "slagen": 2,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 100,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -312,7 +378,9 @@
           "cpTotaal": 7.9,
           "slagen": 0,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 19,
+          "bonus": 0
         }
       ]
     },
@@ -328,7 +396,9 @@
           "cpTotaal": 65.8,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 219,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -336,7 +406,9 @@
           "cpTotaal": 56.4,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -344,7 +416,9 @@
           "cpTotaal": 50.0,
           "slagen": 20,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 200,
+          "bonus": 3
         },
         {
           "speler": "Miss Sunshine",
@@ -352,7 +426,9 @@
           "cpTotaal": 37.6,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -360,7 +436,9 @@
           "cpTotaal": 28.2,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -368,7 +446,9 @@
           "cpTotaal": 18.8,
           "slagen": 18,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 188,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -376,7 +456,9 @@
           "cpTotaal": 9.4,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 108,
+          "bonus": 0
         }
       ]
     },
@@ -392,7 +474,9 @@
           "cpTotaal": 83.0,
           "slagen": 20,
           "slagenKoning": true,
-          "ongeslagenWinnaar": true
+          "ongeslagenWinnaar": true,
+          "punten": 290,
+          "bonus": 8
         },
         {
           "speler": "CinCity",
@@ -400,7 +484,9 @@
           "cpTotaal": 64.3,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 219,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -408,7 +494,9 @@
           "cpTotaal": 53.6,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -416,7 +504,9 @@
           "cpTotaal": 42.9,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -424,7 +514,9 @@
           "cpTotaal": 32.1,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 190,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -432,7 +524,9 @@
           "cpTotaal": 21.4,
           "slagen": 18,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 188,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -440,7 +534,9 @@
           "cpTotaal": 10.7,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 108,
+          "bonus": 0
         }
       ]
     },
@@ -456,7 +552,9 @@
           "cpTotaal": 103.0,
           "slagen": 30,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 250,
+          "bonus": 3
         },
         {
           "speler": "Punda",
@@ -464,7 +562,9 @@
           "cpTotaal": 88.9,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -472,7 +572,9 @@
           "cpTotaal": 77.8,
           "slagen": 20,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 202,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -480,7 +582,9 @@
           "cpTotaal": 66.7,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 201,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -488,7 +592,9 @@
           "cpTotaal": 55.6,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 199,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -496,7 +602,9 @@
           "cpTotaal": 44.4,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 197,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -504,7 +612,9 @@
           "cpTotaal": 33.3,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 188,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -512,7 +622,9 @@
           "cpTotaal": 22.2,
           "slagen": 24,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 182,
+          "bonus": 0
         },
         {
           "speler": "Billy Bat",
@@ -520,7 +632,9 @@
           "cpTotaal": 11.1,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 179,
+          "bonus": 0
         }
       ]
     },
@@ -536,7 +650,9 @@
           "cpTotaal": 103.0,
           "slagen": 30,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 250,
+          "bonus": 3
         },
         {
           "speler": "Punda",
@@ -544,7 +660,9 @@
           "cpTotaal": 88.9,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -552,7 +670,9 @@
           "cpTotaal": 77.8,
           "slagen": 20,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 202,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -560,7 +680,9 @@
           "cpTotaal": 66.7,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 201,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -568,7 +690,9 @@
           "cpTotaal": 55.6,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 199,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -576,7 +700,9 @@
           "cpTotaal": 44.4,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 197,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -584,7 +710,9 @@
           "cpTotaal": 33.3,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 188,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -592,7 +720,9 @@
           "cpTotaal": 22.2,
           "slagen": 24,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 182,
+          "bonus": 0
         },
         {
           "speler": "Billy Bat",
@@ -600,7 +730,9 @@
           "cpTotaal": 11.1,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 179,
+          "bonus": 0
         }
       ]
     },
@@ -616,7 +748,9 @@
           "cpTotaal": 208.0,
           "slagen": 31,
           "slagenKoning": true,
-          "ongeslagenWinnaar": true
+          "ongeslagenWinnaar": true,
+          "punten": 220,
+          "bonus": 8
         },
         {
           "speler": "Punda",
@@ -624,7 +758,9 @@
           "cpTotaal": 177.8,
           "slagen": 8,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 210,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -632,7 +768,9 @@
           "cpTotaal": 155.6,
           "slagen": 20,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 202,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -640,7 +778,9 @@
           "cpTotaal": 133.4,
           "slagen": 10,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 201,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -648,7 +788,9 @@
           "cpTotaal": 111.2,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 199,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -656,7 +798,9 @@
           "cpTotaal": 88.8,
           "slagen": 19,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 197,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -664,7 +808,9 @@
           "cpTotaal": 66.6,
           "slagen": 28,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 188,
+          "bonus": 0
         },
         {
           "speler": "CinCity",
@@ -672,7 +818,9 @@
           "cpTotaal": 44.4,
           "slagen": 24,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 182,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -680,7 +828,9 @@
           "cpTotaal": 22.2,
           "slagen": 29,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 181,
+          "bonus": 0
         }
       ]
     },
@@ -696,7 +846,9 @@
           "cpTotaal": 100.0,
           "slagen": 21,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 218,
+          "bonus": 0
         },
         {
           "speler": "Punda",
@@ -704,7 +856,9 @@
           "cpTotaal": 88.9,
           "slagen": 11,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 216,
+          "bonus": 0
         },
         {
           "speler": "Miss Thunder",
@@ -712,7 +866,9 @@
           "cpTotaal": 77.8,
           "slagen": 29,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 215,
+          "bonus": 0
         },
         {
           "speler": "Vixen",
@@ -720,7 +876,9 @@
           "cpTotaal": 66.7,
           "slagen": 12,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 214,
+          "bonus": 0
         },
         {
           "speler": "Colonel Mustard",
@@ -728,7 +886,9 @@
           "cpTotaal": 58.6,
           "slagen": 39,
           "slagenKoning": true,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 212,
+          "bonus": 3
         },
         {
           "speler": "CinCity",
@@ -736,7 +896,9 @@
           "cpTotaal": 44.4,
           "slagen": 12,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 211,
+          "bonus": 0
         },
         {
           "speler": "Miss Sunshine",
@@ -744,7 +906,9 @@
           "cpTotaal": 33.3,
           "slagen": 13,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 141,
+          "bonus": 0
         },
         {
           "speler": "Sporty Mum",
@@ -752,7 +916,9 @@
           "cpTotaal": 22.2,
           "slagen": 12,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 141,
+          "bonus": 0
         },
         {
           "speler": "The Grey One",
@@ -760,7 +926,87 @@
           "cpTotaal": 11.1,
           "slagen": 30,
           "slagenKoning": false,
-          "ongeslagenWinnaar": false
+          "ongeslagenWinnaar": false,
+          "punten": 123,
+          "bonus": 0
+        }
+      ]
+    },
+    {
+      "gameId": "11-A",
+      "datum": "2026-05-11",
+      "rondes": 13,
+      "finale": false,
+      "resultaten": [
+        {
+          "speler": "Miss Thunder",
+          "plaats": 1,
+          "cpTotaal": 80.0,
+          "slagen": 29,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": true,
+          "punten": 166,
+          "bonus": 5
+        },
+        {
+          "speler": "Miss Sunshine",
+          "plaats": 2,
+          "cpTotaal": 64.3,
+          "slagen": 24,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false,
+          "punten": 151,
+          "bonus": 0
+        },
+        {
+          "speler": "CinCity",
+          "plaats": 3,
+          "cpTotaal": 53.6,
+          "slagen": 21,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false,
+          "punten": 141,
+          "bonus": 0
+        },
+        {
+          "speler": "Vixen",
+          "plaats": 4,
+          "cpTotaal": 42.9,
+          "slagen": 28,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false,
+          "punten": 126,
+          "bonus": 0
+        },
+        {
+          "speler": "The Grey One",
+          "plaats": 5,
+          "cpTotaal": 35.1,
+          "slagen": 32,
+          "slagenKoning": true,
+          "ongeslagenWinnaar": false,
+          "punten": 123,
+          "bonus": 3
+        },
+        {
+          "speler": "Sporty Mum",
+          "plaats": 6,
+          "cpTotaal": 21.4,
+          "slagen": 21,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false,
+          "punten": 123,
+          "bonus": 0
+        },
+        {
+          "speler": "Colonel Mustard",
+          "plaats": 7,
+          "cpTotaal": 10.7,
+          "slagen": 26,
+          "slagenKoning": false,
+          "ongeslagenWinnaar": false,
+          "punten": 61,
+          "bonus": 0
         }
       ]
     }
@@ -781,6 +1027,20 @@
       "rang": 1
     },
     {
+      "speler": "Colonel Mustard",
+      "t": 11,
+      "k": 7,
+      "jaarpunten": 547.9,
+      "wins": 3,
+      "beste": 103.0,
+      "gem_topk": 78.3,
+      "kampioen_waardig": "Ja",
+      "finales": 1,
+      "slagen_k": 5,
+      "ongeslagen": 1,
+      "rang": 2
+    },
+    {
       "speler": "Billy Bat",
       "t": 8,
       "k": 5,
@@ -792,11 +1052,11 @@
       "finales": 1,
       "slagen_k": 1,
       "ongeslagen": 1,
-      "rang": 2
+      "rang": 3
     },
     {
       "speler": "Vixen",
-      "t": 9,
+      "t": 10,
       "k": 6,
       "jaarpunten": 514.2,
       "wins": 0,
@@ -806,58 +1066,44 @@
       "finales": 1,
       "slagen_k": 0,
       "ongeslagen": 0,
-      "rang": 3
-    },
-    {
-      "speler": "Colonel Mustard",
-      "t": 10,
-      "k": 6,
-      "jaarpunten": 492.3,
-      "wins": 3,
-      "beste": 103.0,
-      "gem_topk": 82.0,
-      "kampioen_waardig": "Ja",
-      "finales": 1,
-      "slagen_k": 5,
-      "ongeslagen": 1,
       "rang": 4
     },
     {
       "speler": "The Grey One",
-      "t": 10,
-      "k": 6,
-      "jaarpunten": 460.5,
+      "t": 11,
+      "k": 7,
+      "jaarpunten": 495.6,
       "wins": 1,
       "beste": 133.4,
-      "gem_topk": 76.8,
+      "gem_topk": 70.8,
       "kampioen_waardig": "Ja",
       "finales": 1,
-      "slagen_k": 0,
+      "slagen_k": 1,
       "ongeslagen": 0,
       "rang": 5
     },
     {
-      "speler": "Miss Sunshine",
+      "speler": "Miss Thunder",
       "t": 9,
       "k": 6,
-      "jaarpunten": 398.7,
-      "wins": 0,
-      "beste": 111.2,
-      "gem_topk": 66.5,
+      "jaarpunten": 448.1,
+      "wins": 1,
+      "beste": 88.9,
+      "gem_topk": 74.7,
       "kampioen_waardig": "Ja",
       "finales": 1,
       "slagen_k": 0,
-      "ongeslagen": 0,
+      "ongeslagen": 1,
       "rang": 6
     },
     {
-      "speler": "Miss Thunder",
-      "t": 8,
-      "k": 5,
-      "jaarpunten": 368.1,
+      "speler": "Miss Sunshine",
+      "t": 10,
+      "k": 6,
+      "jaarpunten": 420.1,
       "wins": 0,
-      "beste": 88.9,
-      "gem_topk": 73.6,
+      "beste": 111.2,
+      "gem_topk": 70.0,
       "kampioen_waardig": "Ja",
       "finales": 1,
       "slagen_k": 0,
@@ -866,12 +1112,12 @@
     },
     {
       "speler": "CinCity",
-      "t": 10,
-      "k": 6,
-      "jaarpunten": 325.6,
+      "t": 11,
+      "k": 7,
+      "jaarpunten": 379.2,
       "wins": 2,
       "beste": 65.8,
-      "gem_topk": 54.3,
+      "gem_topk": 54.2,
       "kampioen_waardig": "Ja",
       "finales": 1,
       "slagen_k": 2,
@@ -880,12 +1126,12 @@
     },
     {
       "speler": "Sporty Mum",
-      "t": 10,
-      "k": 6,
-      "jaarpunten": 283.3,
+      "t": 11,
+      "k": 7,
+      "jaarpunten": 316.6,
       "wins": 0,
       "beste": 66.6,
-      "gem_topk": 47.2,
+      "gem_topk": 45.2,
       "kampioen_waardig": "Ja",
       "finales": 1,
       "slagen_k": 1,
