@@ -638,6 +638,9 @@ fetch("data.json?v=" + Date.now())
             ${fullRankingHtml}
           </div>
         `;
+        // knop tonen
+        document.getElementById("ceremonie-exit").style.display = "block";
+
       }, 13000);
     }
 
@@ -653,6 +656,17 @@ fetch("data.json?v=" + Date.now())
   .catch(err => {
     console.error("ERROR loading data.json:", err);
   });
+
+// ✅ NIEUW: functie om ceremonie te sluiten
+function sluitCeremonie() {
+  const overlay = document.getElementById("ceremonie-overlay");
+
+  overlay.style.display = "none";
+
+  // scroll weer aanzetten
+  document.body.style.overflow = "auto";
+}
+
 
 
 // ============================================================
@@ -1034,6 +1048,20 @@ JSON STRUCTUUR VOOR data.json:
       Wie is de kampioen?
     </div>
     <div id="ceremonie-results" style="margin-top:40px; text-align:center;">
+    </div>
+    <div id="ceremonie-exit" style="margin-top:30px; display:none;">
+      <button onclick="sluitCeremonie()" style="
+        padding: 12px 24px;
+        font-size: 1.2rem;
+        border: none;
+        border-radius: 10px;
+        background: gold;
+        color: black;
+        cursor: pointer;
+        font-weight: bold;
+      ">
+        Bekijk dashboard
+      </button>
     </div>
   </div>
 
