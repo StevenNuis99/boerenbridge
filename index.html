@@ -375,6 +375,8 @@
 </style>
 </head>
 <body>
+<div id="Ceremonie-debug" style="text-align:center;color:white;margin-bottom:10px;">  
+</div>
 
 <div class="header">
   <div class="header-inner">
@@ -457,7 +459,6 @@ function renderLastUpdated() {
 }
 
 
-
 function mapJaarstand(data) {
   const map = {};
 
@@ -517,6 +518,22 @@ fetch("data.json?v=" + Date.now())
   .then(res => res.json())
   .then(data => {
     window.DATA = data;
+    
+// 👇 NIEUW: check finale status
+    const isFinaleGespeeld = data.potjes.some(p => p.finale === true);
+
+  // globale flag
+    window.ceremonieActief = isFinaleGespeeld;
+
+    console.log("Finale gespeeld:", isFinaleGespeeld);
+
+    if (window.ceremonieActief) {
+        document.getElementById("ceremonie-debug").innerText =
+          "🎉 Finale gedetecteerd – ceremonie klaar om te starten!";
+      } else {
+        document.getElementById("ceremonie-debug").innerText =
+          "Geen finale gespeeld";
+      }
 
     const stats = mapJaarstand(data);  // ✅ LET OP: data meegeven
 
