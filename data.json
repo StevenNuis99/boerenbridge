@@ -114,7 +114,7 @@
       "gameId": "2-A",
       "datum": "2026-05-12",
       "rondes": 13,
-      "finale": true,
+      "finale": false,
       "resultaten": [
         {
           "speler": "Billy Bat",
