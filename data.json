@@ -16,7 +16,7 @@
       "gameId": "1-A",
       "datum": "2026-05-12",
       "rondes": 13,
-      "finale": false,
+      "finale": true,
       "resultaten": [
         {
           "speler": "Vixen",
