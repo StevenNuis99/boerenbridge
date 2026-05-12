@@ -521,6 +521,8 @@ fetch("data.json?v=" + Date.now())
     
 // 👇 NIEUW: check finale status
     const isFinaleGespeeld = data.potjes.some(p => p.finale === true);
+    const ranking = data.jaarstand.slice().sort((a,b) => b.jaarpunten - a.jaarpunten);
+    const top3 = ranking.slice(0,3);
 
   // globale flag
     window.ceremonieActief = isFinaleGespeeld;
@@ -569,6 +571,74 @@ fetch("data.json?v=" + Date.now())
       setTimeout(() => {
         main.innerText = "Iedereen kijkt gespannen...";
       }, 5500);
+    }
+    if (window.ceremonieActief) {
+      const overlay = document.getElementById("ceremonie-overlay");
+      const title = document.getElementById("ceremonie-title");
+      const main = document.getElementById("ceremonie-main");
+      const resultContainer = document.getElementById("ceremonie-results");
+
+      overlay.style.display = "flex";
+
+      // huidige animatie (heb je al)
+      setTimeout(() => {
+        title.style.transition = "opacity 1s";
+        title.style.opacity = 1;
+      }, 500);
+
+      setTimeout(() => {
+        main.style.transition = "opacity 1s";
+        main.style.opacity = 1;
+      }, 1500);
+
+      setTimeout(() => {
+        main.innerText = "De spanning stijgt...";
+      }, 3500);
+
+      setTimeout(() => {
+        main.innerText = "Iedereen kijkt gespannen...";
+      }, 5500);
+
+      // 🏆 TOP 3 REVEAL
+      setTimeout(() => {
+        resultContainer.innerHTML = `
+          <div style="font-size: 2rem;">🥉 ${top3[2]?.speler} (${top3[2]?.jaarpunten.toFixed(1)})</div>
+        `;
+      }, 7000);
+
+      setTimeout(() => {
+        resultContainer.innerHTML += `
+          <div style="font-size: 2.5rem;">🥈 ${top3[1]?.speler} (${top3[1]?.jaarpunten.toFixed(1)})</div>
+        `;
+      }, 8500);
+
+      // 🥇 WINNAAR
+      setTimeout(() => {
+        resultContainer.innerHTML += `
+          <div style="font-size: 3.5rem; color: gold;">
+            🥇 ${top3[0]?.speler} - ${top3[0]?.jaarpunten.toFixed(1)}
+          </div>
+          <div style="font-size: 1.5rem; margin-top:10px;">
+            🎉 KAMPIOEN! 🎉
+          </div>
+        `;
+      }, 10000);
+
+      // 📊 VOLLEDIGE RANKING
+      setTimeout(() => {
+        const fullRankingHtml = ranking.map((r, index) => `
+          <div style="font-size:1.2rem;">
+            ${index + 1}. ${r.speler} (${r.jaarpunten.toFixed(1)})
+          </div>
+        `).join('');
+
+        resultContainer.innerHTML += `
+          <div style="margin-top:30px;">
+            <div style="font-size:2rem;">📊 Eindstand</div>
+            ${fullRankingHtml}
+          </div>
+        `;
+      }, 13000);
     }
 
     const stats = mapJaarstand(data);  // ✅ LET OP: data meegeven
@@ -961,6 +1031,8 @@ JSON STRUCTUUR VOOR data.json:
 
     <div id="ceremonie-main" style="font-size: 3.5rem; letter-spacing: 2px; opacity:0;">
       Wie is de kampioen?
+    </div>
+    <div id="ceremonie-results" style="margin-top:40px; text-align:center;">
     </div>
   </div>
 
