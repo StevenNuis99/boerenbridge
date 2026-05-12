@@ -541,6 +541,35 @@ fetch("data.json?v=" + Date.now())
       overlay.style.display = "flex";
     }
 
+    if (window.ceremonieActief) {
+      const overlay = document.getElementById("ceremonie-overlay");
+      const title = document.getElementById("ceremonie-title");
+      const main = document.getElementById("ceremonie-main");
+
+      overlay.style.display = "flex";
+
+  // stap 1: fade-in eerste tekst
+      setTimeout(() => {
+        title.style.transition = "opacity 1s";
+        title.style.opacity = 1;
+      }, 500);
+
+  // stap 2: fade-in hoofdtekst
+      setTimeout(() => {
+        main.style.transition = "opacity 1s";
+        main.style.opacity = 1;
+      }, 1500);
+
+      // stap 3: tekst veranderen (spanningsmoment)
+      setTimeout(() => {
+        main.innerText = "De spanning stijgt...";
+      }, 3500);
+
+      // stap 4: nog meer spanning
+      setTimeout(() => {
+        main.innerText = "Iedereen kijkt gespannen...";
+      }, 5500);
+    }
 
     const stats = mapJaarstand(data);  // ✅ LET OP: data meegeven
 
@@ -926,11 +955,11 @@ JSON STRUCTUUR VOOR data.json:
 ">
 
   <div style="text-align:center;">
-    <div style="font-size: 2rem; margin-bottom: 20px;">
+    <div id="ceremonie-title" style="font-size: 2rem; margin-bottom: 20px; opacity:0;">
       🃏 Finale bereikt...
     </div>
 
-    <div style="font-size: 3.5rem; letter-spacing: 2px;">
+    <div id="ceremonie-main" style="font-size: 3.5rem; letter-spacing: 2px; opacity:0;">
       Wie is de kampioen?
     </div>
   </div>
